@@ -1,0 +1,16 @@
+baseURL = "/"
+languageCode = "en-us"
+theme = "terminal"
+title = "Guillaume Bogard"
+
+[params]
+  themeColor = "orange"
+  fullWidthTheme = false
+  centerTheme = false
+  [params.logo]
+    logoText = "Guillaume Bogard"
+
+[taxonomies]
+  category = "categories"
+  tag = "tags"
+  tools = "tools"
