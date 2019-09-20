@@ -1,8 +1,11 @@
 ---
 title: Scala back-end developer
-client:
+employer:
   name: Linkvalue
-  url: http://link-value.fr
+  link: http://link-value.fr
+client:
+  name: Colisweb
+  link: https://www.colisweb.com/en/
 startDate: 2019-05-11
 tools:
   - scala
