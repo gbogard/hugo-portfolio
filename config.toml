@@ -1,12 +1,13 @@
 baseURL = "/"
 languageCode = "en-us"
 theme = "terminal"
-title = "Guillaume Bogard"
+title = "λ Guillaume Bogard"
 
 [params]
-  themeColor = "orange"
+  themeColor = "pink"
   fullWidthTheme = false
   centerTheme = false
+  readMore = "Read more"
   [params.logo]
     logoText = "Guillaume Bogard"
 
@@ -14,3 +15,12 @@ title = "Guillaume Bogard"
   category = "categories"
   tag = "tags"
   tools = "tools"
+
+[[menu.main]]
+  identifier = "blog"
+  name = "Blog"
+  url = "/posts"
+[[menu.main]]
+  identifier = "resume"
+  name = "Résumé"
+  url = "/jobs"
