@@ -1,19 +1,35 @@
 {{ define "main" }}
 <div class="posts">
   {{ .Content }}
-  {{ range sort .Pages "Params.startDate | time" "desc" }}
+  {{ range (.Pages.ByParam "startDate").Reverse }}
   <div class="post on-list">
-    <h1 class="post-title">
-      <a href="{{ .Permalink }}">{{ .Title | markdownify }}</a></h1>
+    <h1 class="post-title job-title">
+      <a href="{{ .Permalink }}">{{ .Title | markdownify }}</a>
+      <div class="tools">
+         {{ range .Params.tools }}
+         <img src="/tools/{{.}}.png" alt="{{.}}">
+         {{end}}
+      </div>
+    </h1>
     <div class="post-meta">
-      {{ with .Params.startDate }}
-      From <span class="post-date"> {{ (time .).Format "January 2006" }}
-      </span>
-      {{ end }}
-      {{ with .Params.endDate }}
-      to <span class="post-date"> {{ (time .).Format "January 2006" }}
-      </span>
-      {{ end }}
+      <div class="date">
+        {{ with .Params.startDate }}
+        📅 From <span class="post-date"> {{ (time .).Format "January 2006" }}
+        </span>
+        {{ end }}
+        {{ with .Params.endDate }}
+        to <span class="post-date"> {{ (time .).Format "January 2006" }}
+        </span>
+        {{ end }}
+      </div>
+      <div class="employer">
+        {{ if .Params.employer }}
+        💼 <a href="{{.Params.employer.link}}">{{.Params.employer.name}}</a>
+          {{ if .Params.client }}
+          for <a href="{{.Params.client.link}}">{{.Params.client.name}}</a>
+          {{ end }}
+        {{ end }}
+      </div>
     </div>
 
     {{ if .Params.tags }}

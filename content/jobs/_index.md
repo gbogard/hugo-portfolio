@@ -1,3 +1,0 @@
-#### Skillset
-
-#### Professional exprerience

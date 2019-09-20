@@ -4,6 +4,27 @@
   margin: 0 1.5rem 1.5rem 0;
 }
 
+.job-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.job-title .tools {
+  padding-top: 1rem;
+  display: flex;
+  align-items: center;
+}
+
+.job-title .tools img {
+  height: 1.5rem;
+  margin: .5rem;
+}
+
+.post-meta {
+  color: rgb(238, 114, 241)
+}
+
 :root {
   --accent: #9980FA
 }
