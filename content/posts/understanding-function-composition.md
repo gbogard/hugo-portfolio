@@ -1,5 +1,4 @@
 ---
-type: Post
 title: Function composition techniques for every developer
 date: 2019-05-15
 draft: true
