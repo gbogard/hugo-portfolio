@@ -325,10 +325,11 @@ Dotty's *given clauses* are used to specify a requirement that the Scala compile
 current scope. They work much like Scala's implicit parameters.
 
 ```scala
-def printInverse[A](input: A)(given Inversible[A]): Unit = println(s"The inverse of $input is ${input.inverse}")
+def printInverse[A](input: A)(given Inversible[A]): Unit = 
+  println(s"The inverse of $input is ${input.inverse}")
 ```
-https://typelevel.org/cats/typeclasses.html
-The main difference here is that given clauses can be anonymous, you don't have to name the parameter if you don't intend to usehttps://typelevel.org/cats/typeclasses.html more than its
+
+The main difference here is that given clauses can be anonymous, you don't have to name the parameter if you don't intend to use more than its
 extension methods. And if you want something even shorter, you can use context bound just like in Scala.
 
 To learn more about given clauses, check out [Dotty's documentation](https://dotty.epfl.ch/docs/reference/contextual/given-clauses.html).
