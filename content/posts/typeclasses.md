@@ -1,6 +1,6 @@
 ---
 title: "Understanding Type classes in Scala : extending types you don't own"
-date: 2019-09-23
+date: 2019-10-11
 categories:
   - scala
 tags:
