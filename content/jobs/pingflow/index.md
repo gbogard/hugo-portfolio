@@ -1,6 +1,6 @@
 ---
 type: Project
-title: Pingflow
+title: Full-Stack developer @Pingflow
 employer:
   name: Pingflow
   link: https://www.pingflow.com/en/home/

@@ -1,6 +1,6 @@
 ---
 type: Project
-title: Qlikbeton
+title: React developer @Qlikbeton
 employer:
   name: Linkvalue
   link: http://link-value.fr
