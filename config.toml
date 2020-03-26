@@ -6,7 +6,7 @@ title = "λ Guillaume Bogard"
 [params]
   themeColor = "pink"
   fullWidthTheme = false
-  centerTheme = false
+  centerTheme = true
   readMore = "Read more"
   [params.logo]
     logoText = "Guillaume Bogard"
