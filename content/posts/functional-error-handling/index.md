@@ -107,17 +107,69 @@ This time, the function never throws. Instead, it returns a data type that encod
 don't, the compiler will warn them)
 
 ```scala
-val validDiscount = computeDiscountedPrice(999.95F, 20.0F) // Some(799.9600219726562)
+val validDiscount = computeDiscountedPrice(999.95F, 20.0F)    // Some(799.9600219726562)
 val invalidDiscount = computeDiscountedPrice(999.95F, 77.00F) // None
 ```
 
 Great! No more exceptions blowing up in our faces. Now I know that sometimes this can fail, and I will adapt my code accordingly. But in what circumstances exactly?
 `Option` doesn't give us any detail as to why a value is absent, it just is, deal with it. In some cases it is desirable to convey additional information regarding the nature
-of the error. For these situations, using an `Either` 
+of the error. For these situations, using an `Either` instead allows us to fail with a particular value, as demonstrated by the next example:
 
-## Monads, a short definition
+```scala
+def computeDiscountedPrice(originalPrice: Float, discountPercent: Float): Either[String, Float] = {
+  if (discountPercent > 75) Left("The discount cannot exceed 75%, that would ruin us!")
+  else Right(originalPrice - (originalPrice * discountPercent / 100))
+}
+
+val validDiscount = computeDiscountedPrice(999.95F, 20.0F)     
+// Right(799.9600219726562)
+val invalidDiscount = computeDiscountedPrice(999.95F, 77.00F)  
+// Left(The discount cannot exceed 75%, that would ruin us!)
+```
+
+When we want to enforce a particular condition, there's even a shorter way of doing it:
+
+```scala
+def computeDiscountedPrice(originalPrice: Float, discountPercent: Float): Either[String, Float] =
+  // Either.cond requires a boolean
+  Either.cond(
+    discountPercent <= 75,
+    // When true, return this wrapped in a Right 
+    originalPrice - (originalPrice * discountPercent / 100),
+    // When false, return this on the left side instead
+    "The discount cannot exceed 75%, that would ruin us!"
+  )
+```
+
+Note that I chose a `String` as my error type on the left side, but I could have chosen any other type. In practice, I would against using `String` on the left side,
+and use a sealed type instead, something I will do in further examples. There are two main reasons for this:
+
+- First, there is no way to enforce exhaustivity when matching against strings. This means the compiler will be able to tell when you haven't handled *any error*, but not
+that you haven't handled *all the errors*. Sealed types give you this additional safety.
+- Secondly, recall how I like my function signature to tell as much as possible? Well, in that case, I know that the method may fail with a message, which is definitely
+an improvement, but because a `String` is a very versatile structure, I still have to look at the implementation to know what this message may be. If I use a type
+purposefully crafted to model the edge cases of my domain, the name of the type itself can tell me a lot about the nature of the error. Let you types tell the story,
+and the implementations will be obvious.
+
+## Monads, a short and probably imperfect definition
 
 ## IO monads, why do we care?
+
+So, monads encode some functional *effect*. The `IO` monad, which you can find an implementation of in the *Cats Effect* library, is another member of this
+big family, aiming at encoding side-effects and asynchronicity. Consider the following signature:
+
+```scala
+def getUser(id: String): IO[User]
+```
+
+A value of type `IO[User]` is the representation of a likely impure program that has been turned into a referentially transparent value by *suspending* its execution.
+Or to put it differently, it's a value representing a program that will run for an undetermined amount of time, probably has some side effects like connecting to an
+external service, and will eventually yield a value of type `User`. Contrarily to Scala's `Future`, it isn't a handle to a computation running on another thread, merely
+the blueprint of a program waiting to be explicitly ran.
+
+Because they suspend side effects, `IO`s can be passed around freely and without risks. When chaining them, using `flatMap` like you would any monad, the resulting
+composition is itself a lazy representation. The entire program will not run until you call something like `unsafeRunSync` on it. The side effects will run eventually, sure,
+but at least not without your explicit consent. 
 
 ## Error handling using Cats Effect's IO
 
@@ -127,7 +179,7 @@ of the error. For these situations, using an `Either`
 
 ## Combining effects with monad transformers
 
-## A short detour : tagless final
+## A short detour: tagless final
 
 ## Introducing Cats MTL
 
