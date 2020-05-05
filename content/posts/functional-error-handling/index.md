@@ -1,6 +1,6 @@
 ---
 type: Post
-title: "Scala: Functional error handling with monads and monad transformers"
+title: "Scala: Functional and asynchronous error handling with monads and monad transformers"
 date: 2020-05-01
 tags:
  - scala
@@ -87,7 +87,33 @@ To make the invisible errors visible again, we need to stop encoding them as exc
 they error cases of our methods directly in their signatures, so they don't surprise anyone anymore, and we need a way of composing error-prone code safely, because
 we're not writing our entire application in a single function, right?
 
+One of the way we can turn errors into data is by using `Option` to model the potential absence of value, and `Either` to model computations that may fail while associating
+additional data to the failure. I will introduce some examples of using these structures to handle errors, but I won't dwell on them too much, 
 
+Let's bring our first example back. If we were to refuse the user a discount in certain cases, instead of throwing an exception, we can expand the return type of our function
+by using an `Option` instead.
+
+```scala
+/**
+* This never throws, for real this time.
+*/
+def computeDiscountedPrice(originalPrice: Float, discountPercent: Float): Option[Float] = {
+  if (discountPercent > 75) None
+  else Some(originalPrice - (originalPrice * discountPercent / 100))
+}
+```
+
+This time, the function never throws. Instead, it returns a data type that encodes optionality, leaving the caller responsible for handling every possible case (and if they
+don't, the compiler will warn them)
+
+```scala
+val validDiscount = computeDiscountedPrice(999.95F, 20.0F) // Some(799.9600219726562)
+val invalidDiscount = computeDiscountedPrice(999.95F, 77.00F) // None
+```
+
+Great! No more exceptions blowing up in our faces. Now I know that sometimes this can fail, and I will adapt my code accordingly. But in what circumstances exactly?
+`Option` doesn't give us any detail as to why a value is absent, it just is, deal with it. In some cases it is desirable to convey additional information regarding the nature
+of the error. For these situations, using an `Either` 
 
 ## Monads, a short definition
 
