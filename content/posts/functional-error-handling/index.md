@@ -84,10 +84,10 @@ So, if not exceptions, what then?
 ## Making exceptions exceptional again
 
 To make the invisible errors visible again, we need to stop encoding them as exceptions and start encoding them as regular data. We need a way of showcasing
-they error cases of our methods directly in their signatures, so they don't surprise anyone anymore, and we need a way of composing error-prone code safely, because
+the error cases of our methods directly in their signatures, so they don't surprise anyone anymore, and we need a way of composing error-prone code safely, because
 we're not writing our entire application in a single function, right?
 
-One of the way we can turn errors into data is by using `Option` to model the potential absence of value, and `Either` to model computations that may fail while associating
+One of the ways we can turn errors into data is by using `Option` to model the potential absence of value, and `Either` to model computations that may fail while associating
 additional data to the failure. I will introduce some examples of using these structures to handle errors, but I won't dwell on them too much, 
 
 Let's bring our first example back. If we were to refuse the user a discount in certain cases, instead of throwing an exception, we can expand the return type of our function
@@ -148,7 +148,7 @@ and use a sealed type instead, something I will do in further examples. There ar
 that you haven't handled *all the errors*. Sealed types give you this additional safety.
 - Secondly, recall how I like my function signature to tell as much as possible? Well, in that case, I know that the method may fail with a message, which is definitely
 an improvement, but because a `String` is a very versatile structure, I still have to look at the implementation to know what this message may be. If I use a type
-purposefully crafted to model the edge cases of my domain, the name of the type itself can tell me a lot about the nature of the error. Let you types tell the story,
+purposefully crafted to model the edge cases of my domain, the name of the type itself can tell me a lot about the nature of the error. Let your types tell the story,
 and the implementations will be obvious.
 
 ## Monads, a short and probably imperfect definition
@@ -156,7 +156,7 @@ and the implementations will be obvious.
 ## IO monads, why do we care?
 
 So, monads encode some functional *effect*. The `IO` monad, which you can find an implementation of in the *Cats Effect* library, is another member of this
-big family, aiming at encoding side-effects and asynchronicity. Consider the following signature:
+big family, aiming at encoding side effects and asynchronicity. Consider the following signature:
 
 ```scala
 def getUser(id: String): IO[User]
@@ -171,7 +171,83 @@ Because they suspend side effects, `IO`s can be passed around freely and without
 composition is itself a lazy representation. The entire program will not run until you call something like `unsafeRunSync` on it. The side effects will run eventually, sure,
 but at least not without your explicit consent. 
 
+```scala
+val a = IO(println("- Hello there"))
+val b = IO(println("- General Kenobi!"))
+
+// Nothing gets printed yet
+
+(a >> b).unsafeRunSync()
+// - Hello there
+// - General Kenobi!
+```
+
+There is a bit of a debate among functional programmers to decide whether or not IO monads really make impure code pure. Which side you stand on is really a matter of definition.
+Even when working with `IO`, your side effects will not magically disappear, they will run eventually. One could say, for the sake of exactitude,
+that IO monads are pure up until execution i.e., they are pure representations of impure programs which lose their purity when you run them. But, of course, you are going to run them at
+some point, so the distinction is of little value when you just want to ship quality code to production. 
+
+One thing that appeals to theorists and hackers alike though is that `IO`
+*reveals* the presence of side effects. Using `IO` is like highlighting dangerous code using types: the non-deterministic parts of your app are clearly segregated from the rest, inviting
+authors and reviewers to greater caution. This property is called *effect tracking*. Sadly, in an impure language like Scala, effect-tracking only works if all other functions are
+assumed to be pure by convention, there is no way for the compiler to enforce it. Relying on types to track effects, model errors and prevent impossible states is great and will
+offload a great deal of mental charge, but it works best when everyone strives for pure functions; a reminder that shipping good code is a team effort.
+
 ## Error handling using Cats Effect's IO
+
+The `IO` from Cats Effect, and some other implementations as well, allows their users to *raise* instances of `Throwable` inside the `IO` context, propagate them
+across a chain of `IO` when composing, and recover them at some point, much like you would use traditional `throw` statements.
+
+```scala
+val failedIO: IO[Int] = IO.raiseError(new Exception("Boom!"))
+
+failedIO.recoverWith({
+  case e => IO {
+    logger.error("Something went wrong", e)
+    42
+  }
+}).unsafeRunSync()
+```
+
+There is subtle difference between raising errors inside `IO`s and throwing in the traditional sense. 
+The former merely returns a value that encodes a failed program; it will fail only when explicitly ran. 
+The latter interrupts the execution before returning any value:
+
+```scala
+// This always returns a value. When composed, all the subsequent IOs will fail too.
+def getUser: IO[User] = IO.raiseError(new Exception("No user found"))
+
+// This fails before getting a chance to return an IO.
+// It means the program will fail during its construction, not during execution
+def getUser: IO[User] = throw new Exception("No user found")
+```
+
+Throwing exceptions outside of `IO`s while the consumer expects to always get some value is confusing and dangerous. Please don't do it!
+
+### The use case: modeling an authentication flow
+
+For the rest of this post, I will introduce several error-handling strategies by highlighting the differences in implementing this simple use case:
+
+I want to authenticate a user using a name and a password. My authentication method will return the user's information. After I have found the user
+and ensured that their password matched the given input, I also need to enforce a couple of business rules:
+
+- The user must have a valid subscription (this probably requires to call some billing service)
+- The user must not be banned from using the service (probably enforced by calling some moderation component)
+
+Each step of the process is a potential source of errors. And since there is a lot of external data fetching, `IO`s will be necessary here.
+For each error-handling strategy, I will implement the authentication method by composing smaller programs using monadic composition.
+Let's start with the most straightforward approach: raising exceptions inside `IO`s.
+
+I will start by modeling every possible error as a bunch of case objects, every one of them inheriting from `RuntimeException`. That way they can not only
+be thrown, which is required by `raiseError`, but also be pattern-matched against, which will make our like much easier.
+
+```scala
+case object WrongUserName extends RuntimeException("No user with that name") 
+case object WrongPassword extends RuntimeException("Wrong password")
+case class ExpiredSubscription(expirationDate: Date) extends RuntimeException("Expired subscription")
+case object BannedUser extends RuntimeException("User is banned")
+```
+
 
 ## Domain edge cases vs. technical failures. Don't mix them up!
 
