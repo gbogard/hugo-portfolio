@@ -239,15 +239,78 @@ For each error-handling strategy, I will implement the authentication method by 
 Let's start with the most straightforward approach: raising exceptions inside `IO`s.
 
 I will start by modeling every possible error as a bunch of case objects, every one of them inheriting from `RuntimeException`. That way they can not only
-be thrown, which is required by `raiseError`, but also be pattern-matched against, which will make our like much easier.
+be thrown, which is required by `raiseError`, but also be pattern-matched against, which will make our life much easier.
 
 ```scala
 case object WrongUserName extends RuntimeException("No user with that name") 
 case object WrongPassword extends RuntimeException("Wrong password")
-case class ExpiredSubscription(expirationDate: Date) extends RuntimeException("Expired subscription")
+case class ExpiredSubscription(expirationDate: Date) 
+  extends RuntimeException("Expired subscription")
 case object BannedUser extends RuntimeException("User is banned")
 ```
 
+Then, I split my logic into small, composable programs. I'll leave the implementation up to you here, I want to focus on the signatures instead. It should be clear enough
+what each program is meant to do.
+
+```scala
+def findUserByName(username: String): IO[User] = ???
+def checkPassword(user: User, password: String): IO[Unit] = ???
+def checkSubscription(user: User): IO[Unit] = ???
+def checkUserStatus(user: User): IO[Unit] = ???
+```
+
+Once I have these programs, I can compose them using `flatMap`. I'll use a for-comprehension here because it's easier to read, but remember it's merely syntactic sugar for good ol'
+`flatMap`.
+
+```scala
+def authenticate(userName: String, password: String): IO[User] =
+  for {
+    user <- findUserByName(userName)
+    _ <- checkPassword(user, password)
+    _ <- checkSubscription(user)
+    _ <- checkUserStatus(user)
+  } yield user
+```
+
+This method first attempts to find my user, then verifies every business rule one after the other, and finally returns my user if everything went well. If any of these intermediate
+programs raises an exception, the execution of the entire composition will be aborted, and my `authenticate` method will itself return a failed `IO` with whatever went wrong.
+Note that right now, all the checks are made in series cause that's how monads work, but since we are using `IO` and since the program is most likely bound by rhe network,
+independent checks could be done in parallel for improved performance. Have a look at [start/join](https://typelevel.org/cats-effect/datatypes/io.html#concurrent-start--cancel) 
+to see how it can be achieved. 
+
+Once I have my intermediate programs all composed together, I can call my `authenticate` method and choose what to do with my user. Eventually, I will also have to `recover` my
+various errors.
+
+```scala
+authenticate("john.doe", "foo.bar")
+  .flatMap(user => IO {
+    println(s"Success! $user") })
+  .recoverWith({
+    case WrongUserName => IO { /* Do stuff ... */ }
+    case WrongPassword => IO { /* Do stuff ... */ }
+    case ExpiredSubscription(date) => IO { /* Do stuff ... */ } 
+    case BannedUser => IO { /* Do stuff ... */ }
+    case _ => IO {
+      println("Another exception was caught !") }
+  })
+```
+
+This works, however this approach is fundamentally flawed. Errors appear nowhere in the signature of the `authenticate` method, making it impossible to know about them
+without some knowledge of the implementation. We've solved the *effect tracking* part by revealing the presence of side effects using `IO`, that's an improvement, but we 
+still have to document errors explicitly, just like we would have to if we were throwing exceptions around and catching them.
+
+Remember that when composing `IO`s together to form a bigger program, raised exceptions propagate across the entire composition, making them nearly as deadly as regular `throw`s. 
+
+There is another issue with this: since `IO`s from Cats Effect can only raise and recover descendants of the `Throwable` type, there is no way to know for sure that I have caught
+all my business errors, because we can't perform an exhaustive pattern matching on `Throwable`.
+This is why I have to add a final `case _ =>` in my pattern matching expression for the sake of exhaustivity. But then if I recover *all* exceptions, how can I know
+that I have handled all my business errors properly, and that none of them will match my final *catch-all* branch?
+
+- I want my errors to appear clearly in the signature of my methods so I don't have to know so much about the implementation
+- I want to treat every error specifically to give actionable feedback to my users
+- I want the compiler to tell me when I forget to handle an error
+
+In other terms, I want my error handling to be truly type-safe. We will address all these concerns in a moment, but first I'd like to clarify something.
 
 ## Domain edge cases vs. technical failures. Don't mix them up!
 
