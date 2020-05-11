@@ -1,6 +1,6 @@
 ---
 type: Post
-title: "Scala: Functional and asynchronous error handling with monads and monad transformers"
+title: "Scala: Functional error handling with monads, monad transformers and Cats MTL"
 date: 2020-05-01
 tags:
  - scala
@@ -141,7 +141,7 @@ def computeDiscountedPrice(originalPrice: Float, discountPercent: Float): Either
   )
 ```
 
-Note that I chose a `String` as my error type on the left side, but I could have chosen any other type. In practice, I would against using `String` on the left side,
+Note that I chose a `String` as my error type on the left side, but I could have chosen any other type. In practice, I would argue against using `String` on the left side,
 and use a sealed type instead, something I will do in further examples. There are two main reasons for this:
 
 - First, there is no way to enforce exhaustivity when matching against strings. This means the compiler will be able to tell when you haven't handled *any error*, but not
@@ -159,7 +159,7 @@ So, monads encode some functional *effect*. The `IO` monad, which you can find a
 big family, aiming at encoding side effects and asynchronicity. Consider the following signature:
 
 ```scala
-def getUser(id: String): IO[User]
+def getUser(id: String): cats.effect.IO[User]
 ```
 
 A value of type `IO[User]` is the representation of a likely impure program that has been turned into a referentially transparent value by *suspending* its execution.
@@ -172,6 +172,8 @@ composition is itself a lazy representation. The entire program will not run unt
 but at least not without your explicit consent. 
 
 ```scala
+import cats.effect.IO
+
 val a = IO(println("- Hello there"))
 val b = IO(println("- General Kenobi!"))
 
@@ -274,7 +276,7 @@ def authenticate(userName: String, password: String): IO[User] =
 
 This method first attempts to find my user, then verifies every business rule one after the other, and finally returns my user if everything went well. If any of these intermediate
 programs raises an exception, the execution of the entire composition will be aborted, and my `authenticate` method will itself return a failed `IO` with whatever went wrong.
-Note that right now, all the checks are made in series cause that's how monads work, but since we are using `IO` and since the program is most likely bound by rhe network,
+Note that right now, all the checks are made in series cause that's how monads work, but since we are using `IO` and since the program is most likely bound by the network,
 independent checks could be done in parallel for improved performance. Have a look at [start/join](https://typelevel.org/cats-effect/datatypes/io.html#concurrent-start--cancel) 
 to see how it can be achieved. 
 
@@ -312,11 +314,129 @@ that I have handled all my business errors properly, and that none of them will 
 
 In other terms, I want my error handling to be truly type-safe. We will address all these concerns in a moment, but first I'd like to clarify something.
 
-## Domain edge cases vs. technical failures. Don't mix them up!
+## Domain edge cases vs. technical failures don't mix them up!
+
+So far, we've been addressing errors as if they belonged to a uniform category. However, in practice, we have to distinguish technical failures from business
+edge cases. Let me give some examples.
+
+Many things can go wrong while authenticating a user, for instance the user might not exist, or the database can be unreachable at that particular time. The first
+scenario is well defined as part of your business logic: users are expected to forget their credentials and should receive appropriate feedback to guide them, such as
+hints toward the credentials recovery procedure. On the other hand, an unreachable component is a purely technical failure that hold meaning neither for your users nor
+the business stakeholders; but it doesn't mean it shouldn't be taken care of.
+
+The key insight here is that business errors should provide actionable feedback for your users, whereas technical errors are completely opaque to them
+but require a fast response from your team. Business edge cases are expected to happen within the normal life cycle of your application and
+should be treated as first-class citizens of the domain model. Technical failures, on the other hand, are not supposed to happen and should be treated according to their severity.
+
+Examples of such technical failures include network outages, misconfiguration of the application, lack of storage on the server and more.
+A properly defined error-handling strategy should have a way of modeling them.
+
+Wait a minute, we already know how to model this! Time to bring back our old friend the `Exception`. 
+
+Indeed exceptions are a perfect candidate for this. They can be raised and recovered inside `IO`s (or, as we will unravel later, any type `F` that has some instance of
+`MonadError[F, Throwable]` defined for it), they are already used by the vast majority of libraries, and the JVM
+already defines a few types of exceptions to choose from such as `IOException` and `TimeoutException`. Most importantly, exceptions will give us some stack trace to work with; 
+remember you are targeting your team here, not your end users.
+
+Here is why we rejected exceptions in the first place: most the harm they do to applications (and their developers)
+come from how they tend to be overused, which isn't to say that they serve no purpose. 
+
+Exceptions are fine when used to model, well, exceptional behavior. The mistake would be
+to use them to model the everyday behavior of your application. When you use them that way, the fact that exceptions naturally propagate across the layers of your application,
+or in the case of `IO` across your composition, can even be desirable. Surely we don't wish our application to fail, but when it has to, it's always desirable to *fail fast*.
+In the era of micro-services and ever-restarting containers, stopping your application entirely might be the best way of dealing with severe failure.
+
+Here's how I see it:
+
+- Every application should have two distinct error channels to handle both technical failures and business edge cases. The first one is turned towards you and your teammates, the second
+towards your end users
+- Type signatures should always reveal as much as possible so that the compiler can do its job of helping us properly. It also reduces the amount of documentation required
+to understand the code and reduces the risks of bugs. This implies proper tracking of side effects, for the reasons we've seen earlier, but also that the types of our
+business-related errors should appear in signatures as well
+- The compiler should compel us to handle every business edge case properly, which implies modeling them in a way that enables exhaustivity checks
+- Technical failures are typically handled once, at the upper levels of the application
+
+Let's see how we can achieve these goals using Scala and Cats.
 
 ## The difficulty of combining effects
 
+Recall how monads are used to encode some *functional effect*. We've seen earlier that `IO`, for example, was used to mark the presence of side effects and model
+asynchronous operations. If we wanted to model a computation that can fail with a particular value as the error, we would use `Either` instead, and use the
+first type parameter to describe our error type.
+
+But what if we want to model a computation, like our `authenticate` example, that is both asynchronous and error-prone? This very common use case requires some
+combination of effects: the asynchronous part will be provided by Cats Effect's `IO`, while the error handling part will be provided by a standard `Either`.
+One way of combining these structures together is to nest them. The `authenticate` method from earlier would then be defined as
+
+```scala
+def authenticate(
+  userName: String,
+  password: String
+): IO[Either[AuthenticationError, User]]
+```
+
+where `AuthenticationError` is a sum type of all my possible errors
+
+```scala
+// Look, no more RuntimeException here!
+sealed trait AuthenticationError
+case object WrongUserName extends AuthenticationError
+case object WrongPassword extends AuthenticationError
+final case class ExpiredSubscription(expirationDate: Date) extends AuthenticationError
+case object BannedUser extends AuthenticationError
+```
+
+This is great because now not only side effects and authentication errors both appear in the type signatures, we still have a dedicated, implicit
+error channel for technical errors provided by `IO`. This would allow us, in the context of a Web application, to have a global handler of all
+technical errors that always returns a `500 Internal Error` to the users and logs the exceptions (This in fact what [Http4s](https://http4s.org/) does by default);
+and on top of having that global handler, the compiler would force us to handle every business errors properly. The exhaustivity of our error-handling strategy is guaranteed by
+the use of sealed types.
+
+Sadly, while this approach ticks a lot of boxes, it comes at a significant cost. We can't express our `authenticate` method in terms of smaller, specialized programs anymore
+because nested monads don't compose nearly as well as monads alone do. One would be tempted to write something like this:
+
+```scala
+def findUserByName(username: String): IO[Either[AuthenticationError, User]] = ???
+def checkPassword(user: User, password: String): IO[Either[AuthenticationError, Unit]] = ???
+def checkSubscription(user: User): IO[Either[AuthenticationError, Unit]] = ???
+def checkUserStatus(user: User): IO[Either[AuthenticationError, Unit]] = ???
+
+def authenticate(userName: String, password: String): IO[Either[AuthenticationError, User]] =
+  for {
+    user <- findUserByName(userName)
+    _ <- checkPassword(user, password)
+    _ <- checkSubscription(user)
+    _ <- checkUserStatus(user)
+  } yield user
+```
+
+but it wouldn't compile. The reason of this is that, when you have two nested monads, it doesn't necessarily mean that you can define a single monad out of them. There is
+no generic way of defining a single monads out of two arbitrary monads. 
+[One has to provide instructions on how to compose any outer monad for each specific inner monad](https://typelevel.org/cats/typeclasses/monad.html#composition) they whish
+to use. These instructions are provided by a structure called a *monad transformer*, a type constructor that takes two monads as arguments, and return one.
+
+Without such transformer, in order to compose our programs, we would have to `flatMap` the `IO` (the outer monad) and then, inside that, `flatMap` the inner monad, yielding 
+code that is very hard to read and maintain:
+
+```scala
+// the benefit 
+def authenticate(userName: String, password: String): IO[Either[AuthenticationError, User]] = 
+  findUserByName(userName).flatMap({
+    case Right(user) => checkPassword(user, password).flatMap({ 
+      case Right(_) => checkSubscription(user).flatMap({
+        case Right(_) => checkUserStatus(user).map(_.as(user))
+        case Left(err) => IO.pure(Left(err))
+      })
+      case Left(err) => IO.pure(Left(err)) 
+    })
+    case Left(err) => IO.pure(Left(err))
+  })
+```
+
+Fortunately, not only it is possible to define a monad transformer for `Either`, Cats already provides it for us!
+
 ## Combining effects with monad transformers
+
 
 ## A short detour: tagless final
 
