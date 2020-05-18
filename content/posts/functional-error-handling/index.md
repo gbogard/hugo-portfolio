@@ -1,7 +1,7 @@
 ---
 type: Post
 title: "Functional error handling with monads, monad transformers and Cats MTL"
-date: 2020-05-12
+date: 2020-05-18
 tags:
  - scala
  - cats
