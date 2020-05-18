@@ -1,7 +1,7 @@
 ---
 type: Post
-title: "Scala: Functional error handling with monads, monad transformers and Cats MTL"
-date: 2020-05-01
+title: "Functional error handling with monads, monad transformers and Cats MTL"
+date: 2020-05-12
 tags:
  - scala
  - cats
@@ -10,7 +10,7 @@ tags:
 
 The way we deal with failure in most OOP applications is itself a common source of unexpected behaviors.
 I believe exceptions and `try/catch` statements are overused. Most of the time, it isn't obvious what a method might 
-throw and when. Edge causes should be treated with the same amount of caution, if not more, than the rest of the code, yet they are rendered
+throw and when. Edge cases should be treated with the same amount of caution, if not more, than the rest of the code, yet they are rendered
 invisible by error-handling mechanisms that hide failures instead of highlighting them.
 
 In this blog post, I will showcase some functional programming techniques, namely monads, monad transformers and Cats MTL, that can
@@ -19,6 +19,24 @@ to keep business logic where it belongs: at the heart of your software. Prior kn
 as I will attempt to define them along the way. Be aware though that these definitions neither exhaustive
 nor the most rigorous. There are as many ways of explaining monads as they have use cases, error handling is just one of them. For a broader definition of
 monads, I recommend [this article by Mateusz Kubuszok](https://kubuszok.com/2018/different-ways-to-understand-a-monad/#monad).
+
+This is going to be a rather long ride, so feel free to jump directly to a section of your choosing: 
+
+- [The issues with exceptions]({{< relref "#the-issues-with-exceptions" >}})
+- [Defining monads]({{< relref "#monads-a-short-and-probably-imperfect-definition" >}})
+- [IO monads and effect tracking]({{< relref "#io-monads-why-do-we-care" >}})
+- [Managing errors inside IO]({{< relref "#error-handling-using-cats-effect-s-io" >}})
+- [The authentication use case]({{< relref "#the-use-case-modeling-an-authentication-flow" >}})
+- [Errors as citizens of your domain]({{< relref "#domain-edge-cases-vs-technical-failures-don-t-mix-them-up" >}})
+- [Why monads don't compose]({{< relref "#the-difficulty-of-combining-effects" >}})
+- [Easy combination of effects with monad transformers]({{< relref "#combining-effects-with-monad-transformers" >}})
+- [Type classes and Cats MTL]({{< relref "#a-short-detour-type-classes-and-ad-hoc-polymorphism" >}})
+
+This article is essentially a more in-depth version of a 
+[talk on Cats MTL I've given at the 2020 Typelevel Summit](https://www.youtube.com/watch?v=6WXgEGbf0iQ&t=387s). If you're 
+looking for a more condensed introduction to monad transformers and functional error handling, consider watching the talk instead.
+
+Let's do this!
 
 ## The issues with exceptions
 
@@ -81,7 +99,7 @@ and I believe the frustration caused by traditional error handling patterns alon
 
 So, if not exceptions, what then?
 
-## Making exceptions exceptional again
+## Bringing back the exceptionality of exceptions
 
 To make the invisible errors visible again, we need to stop encoding them as exceptions and start encoding them as regular data. We need a way of showcasing
 the error cases of our methods directly in their signatures, so they don't surprise anyone anymore, and we need a way of composing error-prone code safely, because
@@ -152,6 +170,126 @@ purposefully crafted to model the edge cases of my domain, the name of the type 
 and the implementations will be obvious.
 
 ## Monads, a short and probably imperfect definition
+
+There are plenty of good monad introductions out there so I won't pretend to give the most detailed explanation, but I will give something we can work on for the rest of this
+article.
+
+`Option` and `Either`, which we have used previously, are both members of a family of structures called *monads*, which are defined by a common *shape*, and some laws.
+
+Generally speaking, for a monad `M`, a value of type `M[A]` represents the computation of one or more values of type `A`, wrapped in the context of the monad. The monad `M`
+itself is made of
+
+- a type constructor that enables us to build values of type `M[A]` from simple values of type `A`. In Cats this constructor is called `pure`.
+- a function that unwrappes monadic values of type `M[M[A]]` into values of type `M[A]`. This is called `flatten`.
+- an applicative functor, which provides the monad with 
+  - an `map` function that allows us to transform the monadic value `M[A]` into a `M[B]` by applying some function `A => B`
+  - an `ap` function that transforms the monadic value by applying a function `M[A => B]` which is itself wrapped into the monadic context
+- some laws called *identities*, which I won't cover here
+
+Cats has [a very good explanation](https://typelevel.org/cats/typeclasses/applicative.html#what-is-ap) for applicative functors, which I won't attempt to recreate here.
+
+Most of the time however, monads are defined using their `flatMap` operator, rather than through the combination of `flatten` and `map`. The `flatMap` operator,
+which uses the `>>=` infix notation in many languages, allows us to transforming a monadic value by applying a function from a simple value to a monadic one. It has 
+the following signature:
+
+```scala
+def flatMap[F[_], A, B](monad: F[A])(fn: A => F[B]): F[B]
+```
+
+The `flatMap` operator is often seen as the essence of a monad. It is also called the *composition operator*, because it enables us to chain dependant computations together:
+if I have some monadic value `F[A], a function of shape `A => F[B]`, and a function of shape `B => F[C]`, then `flatMap` allows me to compose them, in that order, to get a final
+value of type `F[C]`, much like traditional function composition (which Scala expresses with the `andThen` and `compose` operators). 
+
+Let's see how this definition of a monad applies to the `Option` data structure:
+
+- Options have a type constructor from `A` to `Option[A]`, which is called `Some`
+  ```scala
+  val account: Option[Account] = Some(Account(id = "1234", user = andy))
+  ```
+- They have a `map` function (the Scala standard library doesn't define an `ap` function, but Cats can do it for us):
+  ```scala
+  val user: Option[User] = account.map(_.user)
+  ```
+- And they have a `flatMap` function:
+  ```scala
+  def getFavoriteAlbum(user: User): Option[Album] = ???
+
+  val favoriteAlbum: Option[Album] = user.flatMap(getFavoriteAlbum)
+  ```
+
+Using the monad's capabilities, we are able to chain dependant computation to solve bigger problems out of smaller ones, similarly to how we use functional composition
+to split complex functions into smaller ones.
+
+```scala
+def getUser(account: Account): User = ???
+def getFavoriteAlbum(user: User): Option[Album] = ???
+def getHiddenTrack(album: Album): Option[Track] = ???
+def getLyrics(track: Track): String = ???
+
+val lyrics: Option[String] =
+  account
+    .map(getUser)              // Some(User(Andy))
+    .flatMap(getFavoriteAlbum) // Some(Album(Abbey Road))
+    .flatMap(getHiddenTrack)   // Some(Track(Her Majesty))
+    .map(getLyrics)
+    // "Her Majesty's a pretty nice girl But she doesn't have a lot to say ..."
+```
+
+Finally, because monads in Scala use the `flatMap` operator, which has a special meaning in the language, this monadic composition, like any other, can be expressed with
+a [for-comprehension](https://docs.scala-lang.org/tour/for-comprehensions.html) instead, which makes monadic composition feel more like imperative programming, and can
+greatly simplify the code in some cases.
+
+```scala
+val lyrics: Option[String] = for {
+  acc <- getAccount
+  user = getUser(acc)
+  album <- getFavoriteAlbum(user)
+  track <- getHiddenTrack(album)
+} yield getLyrics(track)
+```
+
+### Monads encode some *effect*
+
+So far we've covered (to some extent) what monads were, but not what they were for, and you might be curious as of why we need them; allow me to explain. 
+Monads to *enrich* a computation with some *effect*, some additional behavior specific to the monad at hand. This effect is encoded at the type level, meaning that,
+while the type `A` represents a set of computed values, the type `M[A]` represents computed values along with their associated *effect*. Any piece of code that would
+like to interact with a monadic value `M[A]` would have to deal with this effect somehow.
+
+The nature of the effect encoded by a monad `M` is specific to that monad:
+
+- `Option` encodes the effect of optionality
+- `Either` encodes the effect of failure
+- `IO`, as we will cover in more depth, encodes the effect of isolating side-effects
+- `Reader` / `Kleisli` encodes the effect of accessing values from an environment, and pass that environment across computations 
+
+Monads allow us to express common computing problems without breaking the purity of our functions: e.g, `Option`s allow us to express the absence of value
+without turning to nullable types, `Either`s allow us to express failure without resorting to exceptions. Because these effects are encoded at the type level, the
+compiler can compel us to handle them appropriately, making the code safer. For instance, you can compose `Either`s together to build a complex program, and deal with
+every possible error case at end, so that your program never crashes at runtime. (That is unless you unwrap the structure prematurely using an unsafe method such as `.get`)
+
+## First error wins
+
+What does using monads mean in the context of error management? [Mark Canlas](https://twitter.com/markcanlasnyc) in a talk called 
+[Functional error handling with Cats](https://www.youtube.com/watch?v=KQZjOJjnHIE), which I highly recommend, used the idea of a *happy path* and a
+*sad path* to describe the short-circuiting abilities of monads. 
+
+The idea is that when you compose `Option`s together, the final value will be a `Some` only if all the underlying computations yield a `Some`. If any of
+the composed `Option`s yield a `None`, the final value will be `None`. The composition will short-circuit on the first encountered error, meaning any
+expensive computation after the first `None` is returned won't be evaluated at all.
+
+The same goes for `Either`, which will return either the very last `Right`, or the very first `Left`, and for `Try`, another monad with error handling
+abilities. It makes sense for monads to short-circuit computation that way, since monads are used to chain dependant computations: there is no way to evaluate
+one part of the composition without the value from the preceding parts.
+
+To summarize: 
+
+- pure functions of simple values such as `A => B` are the simplest building blocks you can use to put a program together: they are easy to understand,
+predictable, and they compose. However, sometimes they are not enough. When we need to enrich a computation with an additional behavior, we need to use
+types that not only encode values, but also their associated effects
+- Monads `M[A]` allow us to enrich the computation of values of type `A` with some functional effect such as optionality, failure, non-determinism,
+asynchronism ... The nature of this effect depends on the specific monad at hand
+- The essence of a monad is the ability to chain dependant computations together to form one bigger computation, using the `flatMap` operator, also written `>>=`
+- Another key property of monads is short-circuiting: when using monads to handle errors, remember that the first error always win
 
 ## IO monads, why do we care?
 
@@ -419,7 +557,6 @@ Without such transformer, in order to compose our programs, we would have to `fl
 code that is very hard to read and maintain:
 
 ```scala
-// the benefit 
 def authenticate(userName: String, password: String): IO[Either[AuthenticationError, User]] = 
   findUserByName(userName).flatMap({
     case Right(user) => checkPassword(user, password).flatMap({ 
@@ -437,9 +574,382 @@ Fortunately, not only it is possible to define a monad transformer for `Either`,
 
 ## Combining effects with monad transformers
 
+The `EitherT` transformer is one of several monad transformers ready for us to use in Cats. `EitherT[F[_], A, B]` is a light wrapper around `F[Either[A, B]]`, where
+`F[_]` can be any monad you want. We say monad transformers are type constructors that take monads as arguments and return monads, simply because, as long a `F[_]` is
+a lawful monad, the fully-constructed `EitherT[F[_], A, B]` type will also be a lawful monad.
 
-## A short detour: tagless final
+Effectively monad transformers allow us to enrich a monad, in that case `IO[_]`, with the effect described by another monad, here `Either[A, _]`, in a way that maintains
+the ability to compose computations together. By using `EitherT` on `IO`, we effectively get the side effects suspension and asynchronous programming abilities of `IO`, with
+the error modeling capacities of `Either`.
+
+There is a bidirectional transformation between `IO[Either[A, B]]` and `EitherT[IO, A, B]`:
+
+```scala
+import cats.data.EitherT
+
+val user: IO[Either[AuthenticationError, User]] = IO.pure(Left("No user found"))
+
+// use EitherT.apply to lift a nested Either to an EitherT
+val myEitherT: EitherT[IO, AuthenticationError, User] = EitherT(user)
+
+// use .value to demote the EitherT to a nested monad again
+val userAgain: IO[Either[AuthenticationError, User]] = myEitherT.value
+```
+
+And now that we now about `EitherT`, we can use it to assemble our `authenticate` method once again:
+
+```scala
+def findUserByName(username: String): IO[Either[AuthenticationError, User]] = ???
+def checkPassword(user: User, password: String): IO[Either[AuthenticationError, Unit]] = ???
+def checkSubscription(user: User): IO[Either[AuthenticationError, Unit]] = ???
+def checkUserStatus(user: User): IO[Either[AuthenticationError, Unit]] = ???
+def authenticate(userName: String, password: String): EitherT[IO, AuthenticationError, User] =
+  for {
+    user <- EitherT(findUserByName(userName))
+    _ <- EitherT(checkPassword(user, password))
+    _ <- EitherT(checkSubscription(user))
+    _ <- EitherT(checkUserStatus(user))
+  } yield user
+```
+
+If any of these `EitherT` happens to contain `Left`, the computation will stop amd the result of the `authenticate` method itself will also contain a `Left`.
+Not only that, but if any `IO` in there raises an error, the computation will also stop, and the value of the resulting `EitherT`, will in fact also be a
+failed `IO`. Hence we have a structure with two distinct error-channels, and double short-circuiting logic. We can combine `EitherT`s together, and the computation
+will always return the first encountered error, a pattern sometimes described as *railway-oriented programming*
+
+Authentication errors, which are an essential part of the domain, appear clearly in the type signature, along with the presence of side-effects denoted by `IO`, and
+they must be explicitly dealt with. Because `AuthenticationError` is a sealed type, the compiler will tell me
+if I forget to handle an authentication error properly.
+
+```scala
+authenticate("", "").value.flatMap({
+  case Right(user) => IO(println(user))
+  case Left(BannedUser) => IO(println(s"Error! The user is banned"))
+  case Left(WrongPassword) => IO(println(s"Error! Wrong password"))
+})
+```
+
+```bash
+[warn] EitherTExample.scala:25:38: match may not be exhaustive.
+[warn] It would fail on the following inputs: Left(ExpiredSubscription(_)), Left(WrongUserName)
+[warn]   authenticate("", "").value.flatMap({
+[warn]                                      ^
+[warn] one warning found
+```
+
+Curious how `EitherT` works?
+
+ The `flatMap` implementation of `EitherT` properly describes the short-circuiting logic between an `EitherT[F, A, B]` and a dependent
+`B => EitherT[F, A, C]` function, which I will call the *next `EitherT`*. It does exactly what we have been doing earlier: 
+first combine the outer `IO`, and then match the inner `Either`. If the value inside the first `IO` is a `Right`, 
+we can can continue the computation applying whatever value was found inside that `Right` to the *next `EitherT`*;
+if it's a `Left`, we halt the computation by lifting that `Left` inside an `F[_]`, and the *next `EitherT`* is never evaluated.
+
+```scala
+// defined on cats.data.EitherT
+
+def flatMap[AA >: A, D](f: B => EitherT[F, AA, D])(implicit F: Monad[F]): EitherT[F, AA, D] =
+    EitherT(F.flatMap(value) {
+      case l @ Left(_) => F.pure(l.asInstanceOf[Either[AA, D]])
+      case Right(b)    => f(b).value
+    })
+``` 
+
+`EitherT` allows us to achieve a sound, type-safe error-handling strategy, while keeping things relatively easy to implement.
+
+- Side effects are properly tracked
+- Business errors are no longer invisible, instead they are treated as first-class citizens of the domain
+- We have a distinct error channel for purely technical failures, so they don't pollute our domain logic
+- The Scala compiler can compel us to handle every business error, reducing the opportunities for bugs in the application
+- Overall, we can *fail fast* on technical failures, and easily provide actionable feedback to our users when don't use our application
+as intended.
+
+On top of that, I haven't mentioned some other very useful characteristics of `EitherT`, such as the ability to build an `EitherT[F, A, B]`
+from an `Option[B]`, or even a `F[Option[B]]`, or the ability to construct an `EitherT` out of a boolean value using  `EitherT.cond`. Overall `EitherT`
+is a very powerful structure, enabling a very clean and elegant approach to error management.
+
+However, not all is great in the land of monad transformers, and there are still some issues that, depending on the app you're building, might need
+to be addressed. 
+
+The first of these issues is performance. Monad transformers in Scala are rather slow, much more so than their Haskell counterparts.
+I've never it to be a big deal, and I believe it won't be for most applications, since there are so many other potential
+bottlenecks to look after before trying to reduce the number of monad transformations. For IO-bound applications, 
+[the overhead of monad transformers is mostly irrelevant](https://twitter.com/djspiewak/status/1256352799278784515); for CPU bound applications, your
+mileage may vary.
+
+The second issue with monad transformers appears when you try to stack them together. We've said earlier that monads were used to describe
+some *effect*, and that monad transformers were used to, sort-of, enrich an existing monad with the effect described by another monad, effectively
+resulting in a structure that combines both effects, while preserving the ability of chaining computations (i.e. a monadic structure itself).
+With that understanding, it makes sense to attempt using more than one transformer at a time: what if I want *this* effect and *that* effect
+at the same time? In theory you could, e.g., stack a `ReaderT`, an `EitherT` and an `IO` together, to create a new monad that has
+
+- the ability to read values from some read-only context (described by `ReaderT`)
+- the ability to short-circuit using any arbitrary type as the error type (described by `EitherT`)
+- and the suspension of side-effects provided by `IO`
+
+In practice however, stacking monad transformers in Scala require a shocking amount of boilerplate, leading developers to the idea
+that maybe they should drop monad transformers altogether and go back to raising exceptions. Take a look at the following code:
+
+```scala
+// Retrieves document from a super secure data store
+def getDocument: IO[SecretDocument] = ???
+
+def destroyDocument: IO[Unit] = IO.unit
+
+type Count = Int
+val readSecretDocument: User => EitherT[IO, String, SecretDocument] = {
+  val state: StateT[ReaderT[IO, User, *], Count, Either[String, SecretDocument]] =
+    StateT[ReaderT[IO, User, *], Int, Either[String, SecretDocument]](currentAttemptsCount =>
+      ReaderT[IO, User, (Count, Either[String, SecretDocument])](user =>
+        if (currentAttemptsCount >= 3) 
+          destroyDocument.as((currentAttemptsCount, Left("Max attempts exceeded")))
+        else if (user.isAdmin) getDocument.map(doc => (currentAttemptsCount, Right(doc)))
+        else IO.pure((currentAttemptsCount + 1, Left("Access denied")))
+      )
+    )
+
+  state.run(0).map(_._2).mapF(EitherT(_)).run
+}
+```
+
+This defines a function that, given a User, may or may not give access to some secret document, based on some simple rules. To be given access to the document,
+the user must be an administrator. Every time an unauthorized person attempts to access the document, we increment a counter. After 3 failed attempts, the document is destroyed. This particular implementation uses stacked monad transformers and is purely functional™
+
+- It uses `IO`, because our super secure data store is asynchronous, and destroying a document is a side-effect
+- It uses `EitherT` for its error-handling abilities
+- It uses `StateT` to model the mutable state of our attempts counter
+
+But it's also completely recondite, especially given how simple implementing such a use case should be. The main reason behind this excessive amount
+of boilerplate is the amount of type parameters the compiler has to deal with: Scala's type inference system can't keep up with nested transformers, forcing you
+into providing every type specifically.
+
+Code like this helps use understand why some  functional programming advocates sometimes fail to promote the benefits 
+of the functional paradigm outside their circle: the purity of such code 
+simply isn't worth the tradeoff of a nearly unreadable implementation. People who have been practicing FP for a long time know how
+it enables them to do what most of what imperative languages do in a safer way, but also with less boilerplate; yet this is an example of something that is completely straightforward in imperative programming, and sadly convoluted when using monad transformers.
+
+Clearly we must do something better.
+
+To achieve the goal of stacking functional effects elegantly, I will introduce a library called Cats MTL; but before that, we need to take a short detour to explain how these effects are encoded in Scala. This will help us understand the Cats MTL examples better.
+
+## A short detour: type classes and ad hoc polymorphism
+
+*Ad hoc polymorphism* is a general concept to describe methods that operate on various concrete types. One of the way we can achieve this kind of
+polymorphism in Scala is by combining type parameters (*generics*) and type classes. 
+
+We use implicit parameters or context bounds (the latter is just syntactic sugar for the former) to define constraints on type parameters. 
+These constraints limit the concrete structures we can apply methods to, while allowing us to take advantage of the required contracts.
+
+Consider these methods:
+
+```scala
+def combineHeaders(a: Headers, b: Headers): Headers = 
+  // Some complex combination logic
+  ???
+
+def combineAllHeaders(list: List[Headers]): Headers = 
+  list.foldLeft(Headers.empty)(combineHeaders)
+```
+
+Using concrete structures require us not only to define methods with different names for every concrete structure we want to combine, but also to
+redefine the `combineAll` method every time; not to mention that if we wanted to use something else than a `List`, e.g. a `Vector` or a `Set`,
+we would have to define specialized versions of the `combineAll` method as well.
+
+Instead, type classes allow us to write something like this:
+
+```scala
+import cats._
+import cats.implicits._
+
+def combineAll[F[_]: Foldable, A: Monoid](f: F[A]) = f.foldLeft(Monoid[A].empty)(Monoid[A].combine)
+```
+
+The `combineAll` method in this example is not only defined for concrete structures such a `List` and `Headers`, but for *any structure
+`F[_]` that can be folded, and any type `A` which values can be combined*. The `Monoid` type class from Cats describes types that have an
+associative binary operation and an empty element; any type that implements this contract can benefit from the `combineAll` method.
+
+I've covered type classes in more details in [another article]({{< ref  "/posts/typeclasses" >}}). Cats MTL relies entirely on the concept
+of type classes to do its work, so make sure to familiarize yourself with the concept before what comes next.
 
 ## Introducing Cats MTL
 
-## Examples and conclusion
+Here we are, reaching the end of an article that, now that I think about it, might have benefited from being split into many. If you made it this far,
+thank you! We have covered effect tracking, type-safe error handling, technical errors vs domain errors, monads, nested monads, monad transformers and
+even nested monad transformers; now it is time to build on everything we have learned so far to achieve the final version of our authentication use case.
+
+We will use [Cats MTL](https://typelevel.org/cats-mtl/getting-started.html), a library that unifies monad transformers with type classes, in a way that
+makes it easier to stack many transformers together.
+
+The idea of Cats MTL is relatively straightforward: monad transformers are used to add the effect of a monad to another monad, and Cats MTL encodes the
+effects of the most commons monad transformers (`OptionT`, `EitherT`, `ReaderT`, `WriterT`, `StateT` and `IorT`) using type classes. When you require many
+of these type classes, using context bounds or implicit parameters like we've seen before, you are effectively stacking monad transformers together; but because
+you do it through an additional layer of abstraction, you don't have to deal with the painful type inference issues we have faced earlier.
+
+### Raising errors
+
+In Cats MTL, the `FunctorRaise[F[_], E]` type class is used to provide some structure `F[_]` with the ability to raise errors
+of type `E`. We can use it to write a password verification method that raises errors of type `AuthenticationError`:
+
+```scala
+import cats.implicits._
+import cats.mtl._
+import cats.mtl.implicits._
+
+def checkPassword[F[_]](user: User, password: String)(
+  implicit FR: FunctorRaise[F, AuthenticationError],
+  A: Applicative[F]
+): F[Unit] = if (password == "1234") A.unit else FR.raise(WrongPassword)
+```
+
+Note that requiring `FunctorRaise` implies a `Functor` can be defined for `F`, meaning we can map over `F[_]` values without an explicit requirement on
+the `Functor` type class.
+`Applicative` is required to build a "neutral" `F[Unit]` value, since the `unit` method is defined for applicative functors, not regular functors.
+
+### Recovering
+
+The `ApplicativeHandle[F[_], E]` type class, also from Cats MTL, extends `FunctorRaise[F[_], E]` with the ability for `F[_]` to recover values of type `E`.
+It also implies an instance of `Applicative[F]`.
+
+```scala
+def runAndLogErrors[F[_], A, E](program: => F[A])(
+  implicit logger: E => F[Unit],
+  AH: ApplicativeHandle[F, E],
+  M: Monad[F]
+): F[A] = 
+  // We "catch" the error, log it, and then raise it again
+  program.handleWith((e: E) => logger(e) >> e.raise[F, A])
+```
+
+In this example, we must require an instance of `Monad` for `F[_]` to be able to call `>>` operator, which allows us
+to evaluate one monadic value after the other.
+
+### Two error channels for two types of errors
+
+We can require many type classes instances to get back the benefit of having distinct error channels to distinguish
+between technical failures and domain errors; specifically, 
+we can combine the `FunctorRaise` / `ApplicativeHandle[F, DomainError]`
+type classes from Cats MTL, and the `MonadError[F, TechnicalError]` type class from Cats core, where `DomainError`
+will most likely be a sealed type of our own making, such as `AuthenticationError`, and 
+`TechnicalError` will most likely be `Throwable`.  
+
+```scala
+def findUserByName[F[_]](name: String)(
+  implicit ME: MonadError[F, Throwable]
+): F[User] = ME.raiseError(new RuntimeException("The database cannot be reached"))
+```
+
+`ApplicativeHandle[F, E, A] ` and `FunctorRaise[F, E, A]` are the most useful type classes
+when dealing with failure. Cats MTL will provide us with instances of these type classes not only for 
+`EitherT[F, E, A]` (provided `F` meets the expected requirements) but also for any stack of monad 
+transformers containing an `EitherT[F, E, A]`. 
+
+Cats MTL enables us to manipulate stacked monad transformers without dealing with the pain of poor
+type inference.
+
+## Final examples and conclusion
+
+Let's see how the type classes from Cats MTL can be applied to our `authenticate` method. Remember
+we want to implement the method in terms of smaller, specialized programs, and then compose these programs together.
+
+```scala
+def findUserByName[F[_]](name: String)(
+  implicit ME: MonadError[F, Throwable]
+): F[User] = ME.raiseError(new RuntimeException("The database cannot be reached"))
+
+def checkPassword[F[_]](user: User, password: String)(
+  implicit FR: FunctorRaise[F, AuthenticationError],
+  A: Applicative[F]
+): F[Unit] = if (password == "1234") A.unit else FR.raise(WrongPassword)
+
+def checkSubscription[F[_]](user: User): F[Unit] = ???
+def checkUserStatus[F[_]](user: User): F[Unit] = ???
+
+def authenticate[F[_]](userName: String, password: String)(
+  // We depend on the requirements of our intermediate methods
+  implicit ME: MonadError[F, Throwable],
+  functorRaise: FunctorRaise[F, AuthenticationError]
+): F[User] =
+  for {
+    user <- findUserByName[F](userName)
+    _ <- checkPassword[F](user, password)
+    _ <- checkSubscription[F](user)
+    _ <- checkUserStatus[F](user)
+  } yield user
+```
+
+As expected, the `authenticate` method will short-circuit on the first encountered error in any of the error
+channels. Technical errors and domain errors can be dealt with specifically, with proper exhaustivity checks for
+the latter:
+
+```scala
+def authenticateAndHandle[F[_]](
+   implicit ME: MonadError[F, Throwable],
+   AE: ApplicativeHandle[F, AuthenticationError],
+   // `Sync` is the type class that describes the ability to suspend side effects
+   // `IO` provides a concrete instance of Sync
+   Sync: Sync[F]
+ ) =
+   authenticate("john.doe", "123456")
+   // Handle business errors
+   .handleWith({
+     case WrongUserName => Sync.delay { /* Do stuff ... */ }
+     case WrongPassword => Sync.delay { /* Do stuff ... */ }
+     case e: AuthenticationError => Sync.delay {
+       println("Another domain error was caught !")
+     }
+   })
+   // Handle technical failures
+   .recoverWith({
+     case e: Throwable => Sync.delay {
+       println("Something went terribly wrong!")
+     }
+   })
+```
+
+### Interpreting the program
+
+When comes of time of running our final program, we must provide a concrete instance for our `F[_]` type;
+one that satisfies the contracts of `MonadError[F, Throwable]`, `ApplicativeHandle[F, AuthenticationError]`
+and `Sync[F]`. What is such a data structure?
+
+```scala
+// Time to interpret the program
+object Main extends App {
+  type F[A] = EitherT[IO, AuthenticationError, A]
+
+  authenticate[F]("john.doe", "123456")
+}
+```
+
+`EitherT[IO, AuthenticationError, A]` satisfies all these conditions:
+
+- the ability to suspend side-effects, described by the `Sync` type class, and to raise technical errors of type
+`Throwable`, described by `MonadError`, are both implemented by `IO`
+- the ability to raise and recover errors of type `AuthenticationError` is guaranteed by a concrete instance
+of `ApplicativeHandle[F, AuthenticationError]`, provided for us by Cats MTL, for any 
+`EitherT[F, AuthenticationError, A]`, and any monad transformer stack containing the latter, as long as `F` has
+an instance of `Applicative` (which again is provided by `cats.effect.IO`)
+
+In conclusion, monads and monad transformers give us the ability to define a sound, truly type-safe error
+handling strategy, and Cats MTL gives us an easier a way of working with monad transformers.
+
+Whichever solution you choose, here a few key takeaways to remember:
+
+- errors are parts of your domain too! try to reveal them using the type system, instead of burying then in
+the implementation
+- don't mistake technical errors for domain edge-cases. When modeling errors, ask yourself "Is this of any
+value to my users, or does it make sense to me as developer only?"
+- use sealed types to encode your errors so the compiler can help you catch oversights
+- monads compose in a *first error wins* fashion. If you need to accumulate errors instead, turn to `Validated`
+instead. Again, [Mark Canlas' talk](https://www.youtube.com/watch?v=KQZjOJjnHIE) is a great place to start
+- don't overuse exceptions
+- FP, with its emphasis on referential transparency, is a lot about *type signatures you can trust™*.
+Monads allow us to advertise the presence of side-effects and the risk of failure using types, which
+dramatically reduces unexpected behavior, and in turn maintainability of your applications
+
+As always, thank you for reading this article, I hope this gave you a better understanding of some functional
+programming concepts, and how they apply to real-world use cases.
+[This repository](https://github.com/gbogard/cats-mtl-talk) contains a Scala project with almost all the
+examples from this article, and some more.
+
+See ya!
