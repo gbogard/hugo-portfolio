@@ -675,8 +675,8 @@ However, not all is great in the land of monad transformers, and there are still
 to be addressed. 
 
 The first of these issues is performance. Monad transformers in Scala are rather slow, much more so than their Haskell counterparts.
-I've never it to be a big deal, and I believe it won't be for most applications, since there are so many other potential
-bottlenecks to look after before trying to reduce the number of monad transformations. For IO-bound applications, 
+I've never found it to be a big deal, and I believe it won't be for most applications, since there are so many other potential
+bottlenecks to look after before trying to reduce the number of monad transformers. For IO-bound applications, 
 [the overhead of monad transformers is mostly irrelevant](https://twitter.com/djspiewak/status/1256352799278784515); for CPU bound applications, your
 mileage may vary.
 
