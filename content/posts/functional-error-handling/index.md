@@ -23,14 +23,17 @@ monads, I recommend [this article by Mateusz Kubuszok](https://kubuszok.com/2018
 This is going to be a rather long ride, so feel free to jump directly to a section of your choosing: 
 
 - [The issues with exceptions]({{< relref "#the-issues-with-exceptions" >}})
-- [Defining monads]({{< relref "#monads-a-short-and-probably-imperfect-definition" >}})
-- [IO monads and effect tracking]({{< relref "#io-monads-why-do-we-care" >}})
-- [Managing errors inside IO]({{< relref "#error-handling-using-cats-effect-s-io" >}})
-- [The authentication use case]({{< relref "#the-use-case-modeling-an-authentication-flow" >}})
-- [Errors as citizens of your domain]({{< relref "#domain-edge-cases-vs-technical-failures-don-t-mix-them-up" >}})
-- [Why monads don't compose]({{< relref "#the-difficulty-of-combining-effects" >}})
-- [Easy combination of effects with monad transformers]({{< relref "#combining-effects-with-monad-transformers" >}})
-- [Type classes and Cats MTL]({{< relref "#a-short-detour-type-classes-and-ad-hoc-polymorphism" >}})
+- [Bringing back the exceptionality of exceptions]({{< relref "#bringing-back-the-exceptionality-of-exceptions" >}})
+- [Monads, a short and probably imperfect definition]({{< relref "#monads-a-short-and-probably-imperfect-definition" >}})
+- [IO monads, why do we care?]({{< relref "#io-monads-why-do-we-care" >}})
+- [Error handling using Cats Effect IO]({{< relref "#error-handling-using-cats-effect-s-io" >}})
+- [Modeling an authentication flow]({{< relref "#the-use-case-modeling-an-authentication-flow" >}})
+- [Errors as citizens of your domain]({{< relref "#errors-as-citizens-of-your-domain" >}})
+- [The difficulty of combining effects (why monads don't compose)]({{< relref "#the-difficulty-of-combining-effects" >}})
+- [Combining effects with monad transformers]({{< relref "#combining-effects-with-monad-transformers" >}})
+- [A short detour: Type classes and ad hoc polymorphism]({{< relref "#a-short-detour-type-classes-and-ad-hoc-polymorphism" >}})
+- [Introducing Cats MTL]({{< relref "#introducing-cats-mtl" >}})
+- [Final examples and conclusion]({{<relref "#final-examples-and-conclusion" >}})
 
 This article is essentially a more in-depth version of a 
 [talk on Cats MTL I've given at the 2020 Typelevel Summit](https://www.youtube.com/watch?v=6WXgEGbf0iQ&t=387s). If you're 
@@ -452,7 +455,7 @@ that I have handled all my business errors properly, and that none of them will 
 
 In other terms, I want my error handling to be truly type-safe. We will address all these concerns in a moment, but first I'd like to clarify something.
 
-## Domain edge cases vs. technical failures don't mix them up!
+## Errors as citizens of your domain
 
 So far, we've been addressing errors as if they belonged to a uniform category. However, in practice, we have to distinguish technical failures from business
 edge cases. Let me give some examples.
