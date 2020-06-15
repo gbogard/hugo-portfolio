@@ -1,3 +1,15 @@
+### Functional programming training
+
+I enjoy sharing my knowledge and producing educational content. I am an experienced 
+programming instructor and have taught functional programming in Scala 
+to dozens of professional developers and computer science students alike.
+
+I am currently building [Lambda Town](https://lambda.town/), the first
+e-learning platform dedicated to teaching functional programming, Scala, Cats and Apache Spark, using
+high-quality videos and real-world-focused interactive exercises.
+
+If you are interested in in-person training on Scala and FP for you or your team, [get in touch](#get-in-touch).
+
 ### Public Speaking
 
 I've had several opportunities to talk publicly about my favorite topics : Scala, React, and
