@@ -17,9 +17,14 @@ functional programming.
 
 I also gave functional programming introduction classes to students in engineering. Here are some of my talks:
 
-- Meetup : IO Monad & Error management, from Exceptions to Cats MTL (2019)
+- [Free monads from scratch @ Lambda Lille (2020)](https://github.com/gbogard/free-monads-from-scratch)
+- [Type-safe, functional React apps with ReasonML @ QueerJS (2020)](https://github.com/gbogard/queerjs-reasonml-talk)
+- [Type-safe internationalization with ReasonML @ Lambda Lille (2020)](https://github.com/gbogard/queerjs-reasonml-talk)
+- IO Monad & Error management, from Exceptions to Cats MTL (2019)
   - [Slides on Github](https://github.com/gbogard/cats-mtl-talk)
+  - [Blog post](/posts/functional-error-handling)
   - [Typelevel Summit NYC 2020 Recording](https://www.youtube.com/watch?v=6WXgEGbf0iQ&t=387s)
 - [2-day Workshop : Functional programming in Scala (2019) (Exercises and slides on Github)](https://github.com/gbogard/scala-training)
-- [Meetup : Managing side effects in React applications (2019)](/posts/discover-redux-saga/)
-- [Introduction to Akka actors for beginners at Scala.io (2018) (Talk in French)](https://www.youtube.com/watch?v=tcj8IaG9_wc)
+- [Managing side effects in React applications @ React Beer Lille (2019)](/posts/discover-redux-saga/)
+- [Functional programming with fp-ts @ Linkvalue (2018)](https://github.com/gbogard/fp-ts-talk)
+- [Introduction to Akka actors for beginners @ Scala.io (2018) (Talk in French)](https://www.youtube.com/watch?v=tcj8IaG9_wc)
