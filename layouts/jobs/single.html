@@ -8,18 +8,26 @@
          {{end}}
       </div>
     </h1>
-  <div class="post-meta">
-      {{ if .Params.Date }}
-    <span class="post-date">
-      {{ .Date.Format "2006-01-02" }}
-    </span>
-    {{ end }}
-    {{ with .Params.Author }}
-    <span class="post-author">::
-      {{ . }}
-    </span>
-    {{ end }}
-  </div>
+    <div class="post-meta">
+      <div class="date">
+        {{ with .Params.startDate }}
+        📅 From <span class="post-date"> {{ (time .).Format "January 2006" }}
+        </span>
+        {{ end }}
+        {{ with .Params.endDate }}
+        to <span class="post-date"> {{ (time .).Format "January 2006" }}
+        </span>
+        {{ end }}
+      </div>
+      <div class="employer">
+        {{ if .Params.employer }}
+        💼 <a href="{{.Params.employer.link}}">{{.Params.employer.name}}</a>
+          {{ if .Params.client }}
+          for <a href="{{.Params.client.link}}">{{.Params.client.name}}</a>
+          {{ end }}
+        {{ end }}
+      </div>
+      </div>
 
   {{ if .Params.tags }}
   <span class="post-tags">
@@ -36,6 +44,13 @@
   <div class="post-content">
     {{ .Content }}
   </div>
+  {{ if $.Param "images" }}
+    <div class="img-grid">
+    {{ range $.Param "images" }}
+    <img src="{{ . }}" />
+    {{ end }}
+    </div>
+  {{ end }}
   {{ if or .NextInSection .PrevInSection }}
   <div class="pagination">
     <div class="pagination__title">

@@ -1,16 +1,15 @@
 ---
-type: Project
-title: Docler Direct Marketing
+title: Junior Javascript Developer @Docler Holding
 employer:
   name: Docler Holding
   link: https://www.doclerholding.com/en/main/
+images:
+  - docler.jpg
 startDate: 2016-05-01
 endDate: 2016-11-01
 tools:
   - javascript
   - node
-images:
-  - ../../assets/images/projects/docler.jpg
 ---
 
 I was asked to develop a front-end application that could manage e-mail campaigns, leads, vouchers, as well as display business insights for

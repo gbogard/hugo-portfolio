@@ -1,5 +1,4 @@
 ---
-type: Project
 title: React developer @Qlikbeton
 employer:
   name: Linkvalue
@@ -10,8 +9,8 @@ client:
 startDate: 2018-01-01
 endDate: 2018-06-15
 images:
-  - ../../assets/images/projects/qlikbeton-1.gif
-  - ../../assets/images/projects/qlikbeton-2.png
+  - qlikbeton-1.gif
+  - qlikbeton-2.png
 tools:
   - react
   - javascript

@@ -1,5 +1,5 @@
 .homepage-image {
-  max-width: 140px !important;
+  max-width: 220px !important;
   float: left;
   margin: 0 1.5rem 1.5rem 0;
 }
@@ -27,4 +27,28 @@
 
 :root {
   --accent: #9980FA
+}
+
+.img-grid img {
+  width: 100%;
+}
+
+.img-grid {
+  display: grid;
+  grid-auto-rows: auto;
+  grid-template-columns: 1fr;
+  grid-gap: 1rem;
+  margin: 3rem 0;
+}
+
+@media screen and (min-width: 768px) {
+  .img-grid {
+    grid-template-columns:repeat(2, minmax(200px, 1fr));
+  }
+}
+
+@media screen and (min-width: 1200px) {
+  .img-grid {
+    grid-template-columns: repeat(3, minmax(300px, auto));
+  }
 }

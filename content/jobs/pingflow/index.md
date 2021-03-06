@@ -1,5 +1,4 @@
 ---
-type: Project
 title: Full-Stack developer @Pingflow
 employer:
   name: Pingflow
@@ -13,7 +12,7 @@ tools:
   - scala
   - javascript
 images:
-  - ../../assets/images/projects/pingflow.gif
+  - ./pingflow.gif
 ---
 
 I've worked for a year as a lead developer for this Start-up specialized in _visual management_. My mission was to develop a tool that would help

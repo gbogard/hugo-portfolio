@@ -9,9 +9,9 @@ client:
 startDate: 2019-01-10
 endDate: 2019-05-04
 images:
-  - ../../assets/images/projects/decathlon-maps-1.png
-  - ../../assets/images/projects/decathlon-maps-2.png
-  - ../../assets/images/projects/decathlon-maps-3.png
+  - ./decathlon-maps-1.png
+  - ./decathlon-maps-2.png
+  - ./decathlon-maps-3.png
 tools:
   - react
   - node

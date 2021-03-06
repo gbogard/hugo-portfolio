@@ -1,5 +1,4 @@
 ---
-type: Project
 title: Be API
 employer:
   name: Linkvalue
