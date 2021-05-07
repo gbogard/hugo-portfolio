@@ -2,6 +2,7 @@
 type: Post
 title: Why I've switched to emacs and why you might want to switch too
 date: 2019-04-23
+expirydate: 2020-01-01
 tags:
   - Editor
   - Workflow

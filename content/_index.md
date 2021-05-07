@@ -8,6 +8,6 @@ My hobbies include writing on my [blog](/posts), [making videos](https://www.you
 riding roller-coasters and making noise on mechanical keyboards that go _click! clack!_.
 
 I work for [Canal+](https://www.canalplus.com/), the french leader of pay-television and a global
-leader of film production. We are handling 900K video assets and modernizing the internal video management tools 
+leader of film production. We are handling 1M video assets and modernizing the internal video management tools 
 using 100+ Scala micro-services. 
 Here's my [résumé](/jobs) should you need more details.
