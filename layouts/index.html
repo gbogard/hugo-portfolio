@@ -1,6 +1,7 @@
 {{ define "main" }}
 {{ $image := .Page.Resources.GetMatch "picture.jpg" }}
 {{ $posts := first 5 (where site.RegularPages "Section" "posts") }}
+{{ $videos := first 5 (where site.RegularPages "Section" "videos") }}
 <main aria-role="main">
   <header class="homepage-header">
     <h1>{{.Title}}</h1>
@@ -9,7 +10,7 @@
     {{ end }}
   </header>
   <div class="homepage-content">
-    <img class="homepage-image" src="{{ $image.RelPermalink }}" alt="Picture of myself">
+    <img id="homepage-image" src="{{ $image.RelPermalink }}" alt="Picture of myself">
     <!-- Note that the content for index.html, as a sort of list page, will pull from content/_index.md -->
     {{.Content}}
   </div>
@@ -23,9 +24,19 @@
       </li>
       {{ end }}
     </ul>
-    {{readFile "/publicSpeaking.md" | markdownify }}
-    {{readFile "/opensource.md" | markdownify }}
-    {{readFile "/contact.md" | markdownify }}
+    <h3>Latest videos</h3>
+    <div id="homepage-videos">
+      {{ range $videos }}
+        {{ if .Params.youtubeId }}
+          <a href="{{.Permalink}}">
+            <img alt={{.Title}} src="https://img.youtube.com/vi/{{.Params.youtubeId}}/mqdefault.jpg" />
+          </a>
+        {{ end }}
+      {{ end }}
+    </div>
+    {{readFile "./home/publicSpeaking.md" | markdownify }}
+    {{readFile "./home/opensource.md" | markdownify }}
+    {{readFile "./home/contact.md" | markdownify }}
   </div>
 </main>
 {{ end }}

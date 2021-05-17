@@ -9,7 +9,7 @@ title = "λ Guillaume Bogard"
   centerTheme = true
   readMore = "Read more"
   [params.logo]
-    logoText = "Guillaume Bogard"
+    logoText = "λ Guillaume Bogard"
 
 [taxonomies]
   category = "categories"
@@ -24,3 +24,7 @@ title = "λ Guillaume Bogard"
   identifier = "resume"
   name = "Résumé"
   url = "/jobs"
+[[menu.main]]
+  identifier = "videos"
+  name = "Videos"
+  url = "/videos"
