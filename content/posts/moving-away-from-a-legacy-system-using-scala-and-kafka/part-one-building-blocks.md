@@ -38,7 +38,7 @@ the building blocks of our transition: Kafka topics and functional microservices
 - The second part will cover our data migration pipelines in more detail.
 - The third part will cover our functional services, and showcase how Scala's type system and neat programming concepts like algebraic data types and functors
 (they're not as scary as they sound!) help us transform and validate data safely and easily.
-- The fourth part will showcase the *choregraphy pattern*, which we use a lot throughout the application to implement business logic while retaining our
+- The fourth part will showcase the *choreography pattern*, which we use a lot throughout the application to implement business logic while retaining our
 ability to introduce and remove services as need arises.
 
 The introduction is less technical than the remaining parts. It covers the challenges of migrating a critical system from a higher perspective,
@@ -54,33 +54,26 @@ is performed by Edgar, a closed-source, monolithic program built on an long-obso
 
 Our main concern with Edgar today is the impossibility of reshaping it to address new needs:
 
-- we want to handle 4K, HDR assets. Edgar doesn't do that
-- we want to configure and restrict content distribution on a per-territory basis, as we expand our operations worldwide. 
+- It's 2021. People want 4K and HDR videos. Edgar doesn't handle them.
+- We want to configure and restrict content distribution on a per-territory basis, as we expand our operations worldwide. 
 Edgar doesn't do that, because Canal+ was mostly operating in France when it was introduced
-- we want a multilingual application to support our expansion to new countries
-- we want to introduce new features, new distribution channels, new video transcoding workflows, quickly and without breaking what we already have
+- We want a multilingual application to support our expansion to new countries
+- We want to introduce new features, new distribution channels, new video transcoding workflows, quickly and without breaking what we already have
 
-We can't do any of that because Edgar is a proprietary software, built on a proprietary framework, of which we have little knowledge. 
-To add to our difficulty, Edgar is not only proprietary, it relies on a 15 year-old version of Java, which we can't bare to maintain any longer.
-
-Considered we can't maintain Edgar ourselves anymore, adding the new features we need  — such as 4K — would force us into another expensive contract with
-Edgar's third-party vendor, whereas leveraging our own software teams, and thus keep control of our vital internal tools, would be profitable in the long run. 
-
-To build the software that will replace Edgar for the decade to come, we took a completely opposite approach:
+At best, adding these changes to Edgar would require another expensive contract with a third-party vendor. And that is if they're possible at all.
+Rather than throwing money to maintain a 15 year-old piece of software, we've decided implement ourselves our MAM for the decade to come.
 
 - We're building in-house to avoid locking ourselves in a 15-year contract with another vendor. We're going *inner source*, applying to our organization the best practices
 of open-source software development: public Git repositories, shared libraries, pull requests, open issue tracker, open Wiki. 
-- Edgar is a monolith, but we are going micro-services. This approach lets us introduce 
+- We're breaking free from the monolith and going full micro-services. This approach lets us introduce 
 new features as they are needed, and remove then when they are no longer needs (more on that on a moment)
 
 ## Replacing Edgar: the main challenges
 
-We know we want to shut down our legacy software eventually, but doing to requires time, effort, and a thoughtful approach. Here are some of the things
-we need to consider:
+Replacing such critical software requires time, effort, and a thoughtful approach. Here are some of the things we need to consider:
 
-- 850K videos is a lot of data to transfer. Many of our data transfer procedures take hours to complete, and involve many different services. Such
-long-running procedures need to be resilient: should a dozen-hour-long process crash in the middle, it would be very wasteful to restart from the very
-beginning
+- 850K videos is a lot of data to transfer. Many of our procedures take hours to complete, and involve many different services. 
+Should a dozen-hour-long process crash in the middle, it would be very wasteful to restart from the very beginning
 - Long-running processes should behave correctly with limited resources and bottlenecks: for instance, it is much faster to store something to a relational
 database than to transcode a video file. We must regulate long-running processes so that the fastest steps are not giving the slowest steps more work than
 they can handle
@@ -89,10 +82,9 @@ as Edgar on every aspect. Doing so requires being able to not only implement eve
 feature with greater capabilities), but also transfer every data from the old system the new one.
   - we need **one-shot data replication** to transfer the entirety of the data to a newly-provisioned database
   - and **real-time data replication** so changes users make in Edgar are reflected in Mediahub immediately
-- The domain model between the legacy system and the new system are not exactly the same. We've taken this opportunity to modernize the system, not
-only in technical terms, but also in features and user experience. This comes at the cost of transforming the data to make it fit the new vision.
-Fortunately, Scala's powerful type system enables us to safely transform data from one model to the other, and easily reject invalid data, as will be showcased
-later in this series.
+- We don't want to make a mere copy of Edgar on a more recent foundation, we want to build a radically better system. As we reimagine our video supply chain, and 
+change the underlying data model, data from the legacy will need to be *translated* to the new model. Fortunately, Scala's powerful type system allows us to express these
+transformations safely, and easily reject invalid data.
 
 ## The building blocks of our architecture: Scala microservices and Kafka topics
 
@@ -116,14 +108,31 @@ but there's one question that a modular architecture answers very well: "What if
 Delivering to our users a smooth transition from the old system to the new one is crucial to our business; and the best way to achieve 
 it is to have loosely-coupled services that can take out of from the system at any time, with little or no interruption of service.
 
-We have services that retrieve video assets from Edgar, the old MAM system, add them to Mediahub, we have services that transfer editorial
-data — keywords, people, places, dates and whatnot —, and services that download thumbnails from an old location and upload them to the new system.
-When designing and implementing these services, we make sure to retain our ability to decommission them in the future.
+### Inter-service communication
 
-On top of that, we still need to address the challenges I've mentioned earlier: resiliency of long-running processes and replication, both in real time and
-in one go, of large amounts of data. We address these remaining challenges in the way our services communicate with one another: through Kafka topics.
+Dividing the application into microservices forces us to be more conscientious about separation of concerns. We strive to keep a service's boundaries small, and
+its knowledge of the outside world limited. We ensure that services don't know about one another, and thus don't call one another directly, unless absolutely necessary.
 
-### Kafka topics
+A service whose only goal is to manipulate data from the legacy may depend on a permanent, broader service, but never the other way around, as our ability to decommission legacy-specific
+services lies in the fact that no other service depends on them.
+
+While especially crucial for this whole legacy transition, this principle also applies to more permanent parts of the system. It isn't uncommon for a service to apply business rules
+in reaction to an event in another service. In this scenario, the service that provoked the event emits a message in a Kafka topic. The message will be consumed by other services without
+the original producer's knowledge. When a chain of services emits and consumes events that way to produce a distributed transaction, we call it a choreography, but will discuss it later.
+
+Kafka topics are essentially partitioned and ordered collection of events that have multiple producers and multiple consumers within a system. 
+They are not only useful for propagating events across loosely-coupled services; they enable us to build large ETL (*extract, transform, load*) pipelines, to move massive amounts
+of data from the old system to its successor. Kafka is a distributed streaming platform. 
+Streams let us reason about data emitted over time: they give us a declarative and composable way of handling massive — possibly infinite — amounts of data, 
+which are modeled as successive and bounded sequences of elements called chunks. In a [video about a year ago](https://www.youtube.com/watch?v=YWhrrfP3718), I've shown
+how [fs2](https://fs2.io/#/), a popular streaming library for Scala, could easily be used to transform a CSV file of several gigabytes using limited memory. Despite being very powerful,
+fs2 itself can model data flowing within a single JVM, and not across services; but Kafka lets us apply what we know and love about streaming to build pipelines that spans multiple
+services, and still retain the same essential properties:
+
+- when order matters, Kafka can ensure that consumers receive events in the order they were produced. When it doesn't, Kafka lets multiple consumers process events concurrently 
+to achieve higher throughput. If some services care about the order of events and some don't, 
+[it lets us get that best of both worlds by organising consumers into groups](https://codeburst.io/combining-strict-order-with-massive-parallelism-using-kafka-83dc1ec9be03)
+
 
 ### Scala services
 
