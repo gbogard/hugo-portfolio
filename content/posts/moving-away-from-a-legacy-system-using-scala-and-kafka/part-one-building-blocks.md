@@ -207,14 +207,56 @@ part, for now. How does Scala help us *make it correct*?
 
 #### Safety from runtime errors
 
-// Todo
+As a statically-typed language, Scala can rule out entire classes of bugs such null pointer exceptions, and reject
+incorrect or indeterminate behaviour. As pointed out 
+by [Li Haoyi in his article *Why Scala?*](https://www.lihaoyi.com/post/FromFirstPrinciplesWhyScala.html#static-typechecking),
+Scala's type-checker is able to catch the vast majority of the most common bugs in a dynamic language such as Javascript. 
+
+Scala's type system also allows us to model errors as core members of our domain, and distinguish technical failures from
+errors in our business logic. The latter can be exhaustively checked by the compiler, which will prevent us from forgetting
+anything. Here's for example how the compiler would remind me of a missing implementation for a state of the application:
+
+```shell
+[warn] EitherTExample.scala:25:38: match may not be exhaustive.
+[warn] It would fail on the following inputs: Left(ExpiredSubscription(_)), Left(WrongUserName)
+[warn]   authenticate("", "").value.flatMap({
+[warn]                                      ^
+[warn] one warning found
+```
+
+I've written a fairly long article about [asynchronous error handling in Scala](http://localhost:1313/posts/functional-error-handling/)
+if you feel like diving in the details. Here are the key takeaways:
+
+- use [sum types](https://en.wikipedia.org/wiki/Tagged_union) to model the possible errors of a program, and treat errors
+like regular values
+- use `Either` to provide an error channel to your program, rather than using regular `try/catch`. This makes errors clearly
+visible, to you, to your fellow programmers, and to the compiler, which will prevent indeterminate behaviour
+- use `EitherT` to add an explicit error channel to asynchronous programs (programs that run in `IO`). This combines the
+aforementioned benefits of Cats Effect with those of a rigourous error handling strategy
+- optionally, use the abstractions provided by [Cats MTL](https://github.com/typelevel/cats-mtl) to make the code easier to read
 
 #### More precise domain modeling
 
 // Todo
 
-## Coming up next: tying everything together
+## Coming up next: the details our ETL pipelines
 
-// Todo
+Let's recap: Canal+, a leader of pay-television and film distribution, is rewriting from scratch a major component of the
+video supply chain. This implies moving massive amounts of data from the old software to the new platform, which, in turn, 
+implies many challenges: *how to build a more flexible media asset management platform ?*, *how to feed content to this new
+platform?*, *how to transform data from one platform to the other?* ...
 
-See ya!
+More generally, the questions that we ask ourselves as a team are 
+- ***How to make it flexible?*** (given we'll plenty other needs to address in the future)
+- ***How to make it resilient?*** (especially regarding long-running processes involving shared resources)
+- ***How to make it correct?*** (given the many possible things that can happen in such a complex system)
+- ***How to make it fast?***
+
+None of these questions are entirely easy to answer, but they're made easier by our choices of architecture: we're building Mediahub as
+a distributed system, implemented in Scala, and backed by Kafka. This gives us the confidence we need to build a platform that will be the
+cornerstone of our video supply chain for the next decade.
+
+Now that I have motivated our transition from Edgar to a new platform, and introduced the main technical choices that make this transition possible,
+I can explain how our ETL pipelines work in more detail. 
+
+This will be the subject of the next article; until then, take care!
