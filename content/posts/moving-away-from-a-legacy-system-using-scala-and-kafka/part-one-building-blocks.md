@@ -106,7 +106,7 @@ but there's one question that a modular architecture answers very well: "What if
 
 **We've found that being able to decommission parts of the application is just as important as adding parts to address new needs.** 
 Delivering to our users a smooth transition from the old system to the new one is crucial to our business; and the best way to achieve 
-it is to have loosely-coupled services that can take out of from the system at any time, with little or no interruption of service.
+it is to have loosely-coupled services that we can take out of from the system at any time, with little or no interruption of service.
 
 ### Inter-service communication
 
@@ -224,7 +224,7 @@ anything. Here's for example how the compiler would remind me of a missing imple
 [warn] one warning found
 ```
 
-I've written a fairly long article about [asynchronous error handling in Scala](http://localhost:1313/posts/functional-error-handling/)
+I've written a fairly long article about [asynchronous error handling in Scala](/posts/functional-error-handling/)
 if you feel like diving in the details. Here are the key takeaways:
 
 - use [sum types](https://en.wikipedia.org/wiki/Tagged_union) to model the possible errors of a program, and treat errors
