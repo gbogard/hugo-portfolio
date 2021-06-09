@@ -12,7 +12,11 @@ title = "λ Guillaume Bogard"
     logoText = "λ Guillaume Bogard"
 
 [markup.goldmark.renderer]
-unsafe= true
+unsafe=true
+
+[markup.highlight]
+  noClasses = false
+  style = "algol"
 
 [taxonomies]
   category = "categories"
