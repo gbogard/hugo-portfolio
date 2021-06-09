@@ -11,6 +11,13 @@ title = "λ Guillaume Bogard"
   [params.logo]
     logoText = "λ Guillaume Bogard"
 
+[markup.goldmark.renderer]
+unsafe=true
+
+[markup.highlight]
+  noClasses = false
+  style = "algol"
+
 [taxonomies]
   category = "categories"
   tag = "tags"

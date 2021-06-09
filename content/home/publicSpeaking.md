@@ -11,7 +11,7 @@ I also gave functional programming introduction classes to students in engineeri
   - [Slides and examples on Github](https://github.com/gbogard/free-monads-from-scratch)
   - [Lambda Lille Recording (in French)](https://www.youtube.com/watch?v=HTvll2QWqFo&t=1213s)
 - [Type-safe, functional React apps with ReasonML @ QueerJS (2020)](https://github.com/gbogard/queerjs-reasonml-talk)
-- [Type-safe internationalization with ReasonML @ Lambda Lille (2020)](https://github.com/gbogard/reasonml-i18n-talk)
+- [Type-safe internationalization with ReasonML @ React Beer Lille (2020)](https://github.com/gbogard/reasonml-i18n-talk)
 - IO Monad & Error management, from Exceptions to Cats MTL (2019)
   - [Slides on Github](https://github.com/gbogard/cats-mtl-talk)
   - [Blog post](/posts/functional-error-handling)
