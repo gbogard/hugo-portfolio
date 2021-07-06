@@ -2,7 +2,7 @@
 type: Post
 title: Moving away from a legacy system using Scala and Kafka - Part 1
 subtitle: The challenges of migrating our media assets management system
-date: "2021-06-10"
+date: "2021-07-06"
 tags:
   - scala
   - cats
@@ -16,20 +16,22 @@ what's the video's resolution?*)
 - Editorial information (*is it a movie? A show? A TV series episode? Who is speaking in the sequence? What about?*)
 - Legal information (*when can we air this content?* *When did we acquire this contract?*)
 
-On top of storing and exposing tools to manipulate video files and their related metadata, Mediahub allows third parties to send us new video elements, and users to ship these elements to VOD platforms and TV channels. A built-in workflow orchestration engine takes care of receiving, quality-checking, assembling and shipping footage. 
-**The platform can execute hundreds of these workflows concurrently, and treats more than 3000 workflows a day.**
+On top of storing and exposing tools to manipulate video files and their related metadata, Mediahub allows third parties to send us
+new video elements and users to ship these elements to VOD platforms and TV channels. A built-in workflow orchestration engine takes care of receiving, 
+quality-checking, assembling and shipping footage. 
+**The platform can execute hundreds of these workflows concurrently and treats more than 3000 workflows a day.**
 
-![The MAM stores media assets and their related metadata, and delivers them to third-party platforms, such as myCANAL or TV Channels](../illustrations/mam.png)
+![The MAM stores media assets and their related metadata and delivers them to third-party platforms, such as myCANAL or TV Channels](../illustrations/mam.png)
 
 The Mediahub project is born roughly in 2017, but Canal+ has been a leader of pay television, film production and film distribution  in France for decades, meaning a vast proportion of the video footage we manage comes from a legacy system. 
-**Out of roughly 1M medias we are managing, 900K come from the old system**; a system we are trying to slowly replace,  using Kafka, Scala, and functional programming as our main tools.
+**Out of roughly 1M medias we are managing, 900K come from the old system**; a system we are trying to slowly replace, using Kafka, Scala, and functional programming as our main tools.
 
 In this series of articles, I will explain why we are moving away from that legacy system and how we are doing it. 
 I'll go from a big picture of our architecture (ETL pipelines built on Kafka) to some neat implementation details  (using Cats to validate and transform loosely structured data), in an attempt to showcase how Kafka, Scala and functional programming allow us to modernize our internal video management tools.
 
 - The introduction, this article, will provide some background regarding our product and our transition to a better system; it will also introduce the building blocks of our transition: Kafka topics and functional microservices written in Scala.
 - The second part will cover our data migration pipelines in more detail.
-- The third part will cover our functional services, and showcase how Scala's type system and neat programming concepts like algebraic data types and functors (they're not as scary as they sound!) help us transform and validate data safely and easily.
+- The third part will cover our functional services and showcase how Scala's type system and neat programming concepts like algebraic data types and functors (they're not as scary as they sound!) help us transform and validate data safely and easily.
 
 Let's do this!
 
@@ -49,13 +51,13 @@ At best, adding these changes to Edgar would require another expensive contract 
 Rather than throwing money to maintain a 15-year-old piece of software, we've decided implement ourselves our MAM for the decade to come.
 
 - We're building in-house to avoid locking ourselves in a 15-year contract with another vendor. We're going *inner source*,  applying to our organisation the best practices of open-source software development:  public Git repositories, shared libraries, pull requests, open issue tracker, open Wiki. 
-- We're breaking free from the monolith and going full microservices. This approach lets us introduce  new features as they are needed, and remove them when they are no longer needed (more on that in a moment).
+- We're breaking free from the monolith and going full microservices. This approach lets us introduce new features as they are needed and remove them when they are no longer needed (more on that in a moment).
 
 ## Replacing Edgar: the main challenges
 
 Replacing such critical software requires time, effort, and a thoughtful approach. Here are some of the things we need to consider:
 
-- 850K videos is a lot of data to transfer. Many of our procedures take hours to complete, and involve many services. 
+- 850K videos is a lot of data to transfer. Many of our procedures take hours to complete and involve many services. 
 Should a dozen-hour-long process crash in the middle, it would be very wasteful to restart from the very beginning
 - Long-running processes should behave correctly with limited resources and bottlenecks: 
 for instance, it is much faster to store something to a relational database than to transcode a video file.
@@ -67,7 +69,7 @@ data from the old system the new one.
 - we need **one-shot data replication** to transfer the entirety of the data to a newly provisioned database
 - and **real-time data replication** so changes users make in Edgar are reflected in Mediahub immediately
 - We don't want to make a mere copy of Edgar on a more recent foundation, we want to build a radically better system. 
-As we reimagine our video supply chain, and change the underlying data model, data from the legacy will need to be *translated*  to the new model. Fortunately, Scala's powerful type system allows us to express these transformations safely, and easily reject invalid data.
+As we reimagine our video supply chain and change the underlying data model, data from the legacy will need to be *translated*  to the new model. Fortunately, Scala's powerful type system allows us to express these transformations safely and easily reject invalid data.
 
 ## The building blocks of our architecture: Scala microservices and Kafka topics
 
@@ -80,10 +82,11 @@ While distributed systems are notoriously harder to implement and maintain (nota
 [infrastructure](https://microservices.io/articles/deployment.html]), this approach as allowed us to handle some of the 
 hardest challenges of migrating a critical system.
 
-In particular, this architecture allows to segregate *legacy-specific services* and *data adapters* from broader and more durable services.
+In particular, this architecture allows to segregate *legacy-specific services*, which only exist to serve our transition from one platform to the other,
+from broader and more durable services.
 Indeed, Mediahub is a connected system: connected to the legacy software, whose data needs to be replicated in real time as long as it is running;
 and connected to external systems (third-party APIs, subsidiaries of the Canal+ group etc.) with which we need to interact. 
-Interacting with these services requires specific code, and the microservices architecture lets us separate that code from the rest of the system.
+Interacting with these services requires specific code and the microservices architecture lets us separate that code from the rest of the system.
 Of course, even a monolith should clearly separate concerns, this isn't something you can't achieve without microservices;
 but there's one question that a modular architecture answers very well: "What if I don't need that anymore?"
 
@@ -93,11 +96,11 @@ it is to have loosely coupled services that we can take out of from the system a
 
 ### Inter-service communication
 
-Dividing the application into microservices forces us to be more conscientious about separation of concerns. We strive to keep a service's boundaries small, and
+Dividing the application into microservices forces us to be more conscientious about separation of concerns. We strive to keep a service's boundaries small and
 its knowledge of the outside world limited. We ensure that services don't know about one another, and thus don't call one another directly, unless necessary.
 
-**A service whose only goal is to manipulate data from the legacy may depend on a permanent, broader service, but never the other way around, as our ability to decommission legacy-specific
-services lies in the fact that no other service depends on them.**
+**A service whose only goal is to manipulate data from the legacy may depend on a permanent, broader service, but never the other way around, 
+as our ability to decommission legacy-specific services lies in the fact that no other service depends on them.**
 
 While especially crucial for this whole legacy transition, this principle also applies to more permanent parts of the system. It isn't uncommon for a service to apply business rules
 in reaction to an event in another service. In this scenario, the service that provoked the event emits a message in a Kafka topic. The message will be consumed by other services without
@@ -133,7 +136,7 @@ and [Conduktor](https://www.conduktor.io/), and event receive notifications in M
 {{<figure 
    src="../illustrations/teams-lag.png" 
    style="max-height: 220px"
-   caption="We are automatically notified in Teams when something is wrong"
+   caption="We are automatically notified in Teams when something is fishy"
    position="center"
 >}}
 
@@ -190,7 +193,7 @@ part, for now. How does Scala help us *make it correct*?
 
 #### Safety from runtime errors
 
-As a statically typed language, Scala can rule out entire classes of bugs such null pointer exceptions, and reject
+As a statically typed language, Scala can rule out entire classes of bugs such as null pointer exceptions, and reject
 incorrect or indeterminate behaviour. As pointed out 
 by [Li Haoyi in his article *Why Scala?*](https://www.lihaoyi.com/post/FromFirstPrinciplesWhyScala.html#static-typechecking),
 Scala's type checker is able to catch the vast majority of the most common bugs in a dynamic language such as Javascript. 
@@ -227,9 +230,43 @@ two goals in mind:
 of how tests and static types complement each other)
 - **provide our software with an always-up-to-date, living documentation**. Types often (I know, not always!) 
 convey more meaning than comments and they always tell the truth. Having more expressive types is a great way to document exactly
-how your software is supposed to work
+how your software is supposed to work.
 
-// todo : add examples
+I'll cover these aspects in more detail when I explain how we parse and validate the incoming data from our legacy application. Until then,
+here's a sneak peek:
+
+##### Algebraic data types
+
+With support for sum types and product types — known together as 
+[*algebraic data types*](https://nrinaudo.github.io/scala-best-practices/definitions/adt.html) — Scala lets us express that Essences, the fundamental
+pieces of data that make up a digital asset, can be:
+- A video, that has a resolution, framerate, bitrate, color space etc.
+- An audio track, comprised of several audio channels
+- A subtitle with a format and a language
+
+```scala
+// Simplified model
+sealed trait Essence
+
+object Essence {
+  case class Video(resolution: Resolution, framerate: FPS, bitrate: Bitrate) extends Essence
+  case class Audio(format: AudioFormat, channels: NonEmptyList[AudioChannel]) extends Essence
+  case class Subtitle(format: SubtitleFormat, locale: Locale)
+}
+```
+
+By modelling the data this way, we tell the compiler that Essences can only be one of these three things, and prevent nonsensical combinations such
+as a video without a resolution, an audio track without channels, or a subtitle with an audio format. Moreover, when dealing with values of type `Essence`,
+[the compiler can enforce exhaustiveness](https://sysgears.com/articles/best-practices-of-safe-pattern-matching-in-scala-application/) 
+thus preventing indeterminate behaviour at runtime.
+
+Notice also how the audio channels of an audio essence are modeled using a `NonEmptyList`. As the name suggests, a `NonEmptyList` is guaranteed to have at
+least one element. Restricted data types like this one are used to reject illegal values as well as to make the complex domain model that is media management a bit
+more approachable. While we can always check if a list is empty at runtime, promoting this constraint to the type level reduces human errors and decreases the
+number of tests we need to write for our software.
+
+Overall, Scala's type system, paired with some neat libraries such as [Cats](https://typelevel.org/cats), 
+brings us closer programs that are *correct by construction*.
 
 ## Coming up next: the details our ETL pipelines
 
@@ -245,10 +282,28 @@ More generally, the questions that we ask ourselves as a team are
 - ***How to make it fast?***
 
 None of these questions are entirely easy to answer, but they're made easier by our choices of architecture: we're building Mediahub as
-a distributed system, implemented in Scala, and backed by Kafka. This gives us the confidence we need to build a platform that will be the
+a distributed system, implemented in Scala and backed by Kafka. This gives us the confidence we need to build a platform that will be the
 cornerstone of our video supply chain for the next decade.
 
-Now that I have motivated our transition from Edgar to a new platform, and introduced the main technical choices that make this transition possible,
+Now that I have motivated our transition from Edgar to a new platform and introduced the main technical choices that make this transition possible,
 I can explain how our ETL pipelines work in more detail. 
 
 This will be the subject of the next article; until then, take care!
+
+---
+
+### 📚 External links
+
+- [Digital Asset Management on Wikipedia](https://en.wikipedia.org/wiki/Digital_asset_management)
+- [Deploying microservices on microservices.io](https://microservices.io/articles/deployment.html)
+- [fs2 Crash Course on Youtube](https://www.youtube.com/watch?v=YWhrrfP3718)
+- [Combining strict order with massive parallelism using Kafka on Medium](https://codeburst.io/combining-strict-order-with-massive-parallelism-using-kafka-83dc1ec9be03)
+- [Akhq on Github](https://github.com/tchiotludo/akhq)
+- [Condukor's official website](https://www.conduktor.io/)
+- [Cats Effect's documentation](https://typelevel.org/cats-effect/)
+- [From First Principles: Why Scala? on Li Haoyi's website](https://www.lihaoyi.com/post/FromFirstPrinciplesWhyScala.html)
+- [Cats MTL's documentation](https://github.com/typelevel/cats-mtl)
+- [Types vs tests on Youtube](https://www.youtube.com/watch?v=apu-J0msaiY)
+- [Algebraic data types on Scala Best Practices](https://nrinaudo.github.io/scala-best-practices/definitions/adt.html)
+- [Tagged unions on Wikipedia](https://en.wikipedia.org/wiki/Tagged_union)
+- [Best Practices of Safe Pattern Matching in a Scala Application on Sysgears](https://sysgears.com/articles/best-practices-of-safe-pattern-matching-in-scala-application/)
