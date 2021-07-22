@@ -882,32 +882,50 @@ def authenticate[F[_]](userName: String, password: String)(
 
 As expected, the `authenticate` method will short-circuit on the first encountered error in any of the error
 channels. Technical errors and domain errors can be dealt with specifically, with proper exhaustivity checks for
-the latter:
+the latter. Let's illustrate this by simulating how this could be used in an HTTP server:
 
 ```scala
-def authenticateAndHandle[F[_]](
-   implicit ME: MonadError[F, Throwable],
-   AE: ApplicativeHandle[F, AuthenticationError],
-   // `Sync` is the type class that describes the ability to suspend side effects
-   // `IO` provides a concrete instance of Sync
-   Sync: Sync[F]
- ) =
-   authenticate("john.doe", "123456")
-   // Handle business errors
-   .handleWith({
-     case WrongUserName => Sync.delay { /* Do stuff ... */ }
-     case WrongPassword => Sync.delay { /* Do stuff ... */ }
-     case e: AuthenticationError => Sync.delay {
-       println("Another domain error was caught !")
-     }
-   })
-   // Handle technical failures
-   .recoverWith({
-     case e: Throwable => Sync.delay {
-       println("Something went terribly wrong!")
-     }
-   })
+// Let's pretend this is an HTTP server for a moment
+final case class HttpResponse(code: Int, body: String)
+
+def authenticateAndServeResponse[F[_]](implicit
+    ME: MonadError[F, Throwable],
+    AE: ApplicativeHandle[F, AuthenticationError],
+    // `Sync` is the type class that describes the ability to suspend side effects
+    // `IO` provides a concrete instance of Sync
+    Sync: Sync[F]
+): F[HttpResponse] =
+  authenticate[F]("john.doe", "123456")
+    // If the authentication succeeds, we return the "200 OK" status
+    .map(user => HttpResponse(code = 200, body = user.toString))
+    // Here we can handle business errors if we want to. 
+    // "handleWith" expects us to produce an [[HttpResponse]], 
+    // just like the [[authenticate]] method.
+    .handleWith[AuthenticationError]({
+      case e @ WrongUserName =>
+        Sync.delay { /* Do stuff, like logging the error ... */ } as 
+          HttpResponse(403, "Wrong username!")
+      case e @ WrongPassword =>
+        Sync.delay { /* Do stuff, like logging the error ... */ } as 
+          HttpResponse(403, "Wrong password!")
+      case e: AuthenticationError =>
+        Sync.delay(println(s"Another domain error was caught ! ($e)")) as
+          HttpResponse(403, e.toString)
+    })
+    // Here we can handle technical failures. 
+    // "recoverWith" expects us to produce an [[HttpResponse]]
+    // Since this is a technical, server-side failure, we're going to send 
+    // a "500 Internal Server Error" status
+    .recoverWith({
+      case e: Throwable =>
+        Sync.delay(println("Something went terribly wrong!")) as 
+          HttpResponse(500, "Something went wrong on our side, please retry later")
+    })
 ```
+
+Seperating erors this way comes in useful for implementing retry strategies: if the requested action
+can't be performed because of temporary network outage, it probably makes sense to retry a few seconds layer. But
+if the error comes from the client-side, we don't need a retry strategy, we need to send proper feedback.
 
 ### Interpreting the program
 
