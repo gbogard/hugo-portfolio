@@ -4,6 +4,7 @@ I've had several opportunities to talk publicly about my favorite topics : Funct
 
 I also gave functional programming introduction classes to students in engineering. Here are some of my talks:
 
+- [Playing board games with Scala JS (2021) @ Scalacon](https://www.youtube.com/watch?v=2KXfIvdwjdg)
 - A gentle introduction to Conflict-free Replicated data types (CRDTs) (2021)
   - [Slides and interactive examples](https://crdt.guillaumebogard.dev/)
   - [Lambda Lille Recording (in French)](https://www.youtube.com/watch?v=7XNXUsZ2uHI)
