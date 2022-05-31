@@ -1,5 +1,5 @@
 ---
-title: Scala developer @Canal+ (Consultant)
+title: Scala developer @Canal+
 employer:
   name: Linkvalue
   link: http://link-value.fr

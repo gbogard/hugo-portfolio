@@ -1,0 +1,15 @@
+{
+  "name": "personal-website",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": "git@github.com:gbogard/hugo-portfolio.git",
+  "author": "Guillaume <guillaume.bogard@canal-plus.com>",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "playwright:install": "playwright install"
+  },
+  "dependencies": {
+    "playwright": "^1.22.2"
+  }
+}

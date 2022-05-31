@@ -2,6 +2,9 @@ baseURL = "/"
 languageCode = "en-gb"
 theme = "terminal"
 title = "λ Guillaume Bogard"
+ignoreFiles = [
+  '\.*experience.md'
+]
 
 [params]
   themeColor = "pink"
@@ -24,13 +27,21 @@ unsafe=true
   tools = "tools"
 
 [[menu.main]]
-  identifier = "blog"
-  name = "Blog"
-  url = "/posts"
+  identifier = "home"
+  name = "About me"
+  url = "/"
+  weight = 1
+
 [[menu.main]]
   identifier = "resume"
   name = "Résumé"
-  url = "/jobs"
+  url = "/resume"
+  weight = 2
+
+[[menu.main]]
+  identifier = "blog"
+  name = "Blog"
+  url = "/posts"
 [[menu.main]]
   identifier = "videos"
   name = "Videos"
