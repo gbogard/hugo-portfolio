@@ -4,12 +4,13 @@ employer:
   name: Canal+
   link: https://www.vivendi.com/en/activities/canal-group
 startDate: 2021-01-15
+endDate: 2022-12-01
 tools:
   - kafka
   - kubernetes
   - scala
 description: |
-  Canal Plus is a glboal leader of pay-television, movie production and  movie distribution. 
+  Canal Plus is a global leader of pay-television, movie production and  movie distribution. 
 
   My team is building Mediahub, a media asset management system (MAM), the cornerstone
   of the group's media supply chain. We are ingesting 300+ hours of new content every day.

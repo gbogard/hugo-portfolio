@@ -11,6 +11,6 @@ I believe in proper domain modeling that makes illegal states impossible to repr
 to performance, and thorough testing.
 
 I've been programming since the age of 13, have tried many different languages (Ruby, Javascript, Clojure, ReasonML, Purescript...) and
-have been programming professionally for 6 years, including more 4 years of commercial Scala experience. I like to play with Haskell on the side.
+have been programming professionally 7 years, including more 4 years of commercial Scala experience.
 
 I enjoy exchanging knowledge with others. I have participated in various conferences and meetups.
