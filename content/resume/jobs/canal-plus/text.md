@@ -1,33 +1,15 @@
-## About the Canal Plus and the Mediahub project
+At Canal+, one of France's leading audiovisual groups, I played a key role in building a next-generation media assets management platform (Mediahub) designed to handle decades of TV shows, sports events, and movies. As the lead developer of the documentation services team, I architected and implemented core systems that helped journalists and archivists interact with millions of videos:
 
-Canal Plus is a glboal leader of pay-television, movie production and movie distribution. 
+- I led a sophisticated documentation service enabling users to annotate specific moments within videos, capturing detailed metadata about participants, actions, and topics.
+- I developed a powerful search infrastructure combining full-text capabilities with faceted navigation, allowing users to find exact moments within vast video archives.
+- I architected a concept management system handling evolving metadata while maintaining historical accuracy and searchability.
+- I led the migration of legacy content through a high-throughput pipeline that transformed millions of XML documents while preserving historical annotations.
 
-My team is building Mediahub, a media asset management system (MAM), the cornerstone
-of the video supply chain. This platform is replacing several separated legacy tools and addressing some of the group's
-biggest challenges: delivering UHD content at scale, operating hundreds of TV channels worldwide as Canal+ expands and keeping track
-of versions, languages and rights associated with each asset ; allowing archivists to index and retrieve more content every day.
+As technical lead, I drove technical excellence and team growth through:
+- Mentoring team members in Scala and functional programming, introducing Cats Effect and championing purely functional practices
+- Establishing architectural standards through hexagonal architecture and property-based testing
+- Streamlining API documentation across microservices by introducing Tapir
+- Maintaining code quality through improvement workshops and technical debt management
+- Contributing to engineering culture via development conferences and brown-bag sessions
 
-We are storing decades worth of movies and TV shows, and ingesting 300+ hours of new content on a daily basis.
-The platform is responsible for transcoding assets as they enter and leave the system, creating proxies out of high quality masters, storing
-and retrieving assets from hot and cold storage and more. 
-
-## Work environment
-
-## My contribution
-
-- As a lead Scala developer, I used **Kafka and fs2** to develop ETLs that allowed us move massive amounts of data safely from the legacy systems, and
-  eventually shut down legacy systems. 
-- I'm leading the archiving feature team. My team is providing archivists the tools they need to document and retrieve videos from a very large catalog.
-  We're building the archiving features using **Kafka, fs2, Postgres and Elasticsearch**.
-- I trained some of my coworkers to **Cats and Cats Effect**, and I'm encouraging a purely functional style. 
-- I've also introduced hexagonal architecture and property-based testing using **Scalacheck**. 
-  
-  I find the combination of purely functional programming, thoughtful error management, clear separation of the domain and application layers through
-  hexagonal architecture, and fearless concurrency has allowed us to build great software.
-- I introduced Tapir in the project to streamline the way we document our 100+ micro services and the way they talk to each other. 
-  HTTP clients are now automatically derived from a statically-typed endpoint definition.
-- I'm also striving to continuously improve our large code base (over 100+ microservices) and keeping a close eye on technical debt: 
-  I'm keeping a continuous improvement backlog and I'm organizing continuous improvement workshops.
-- I've led several technical interviews as part of our recruiting process, and I take part in the evaluation of our consultants
-- I've spoken twice at the company-wide development conference
-- I've co-organized several *brown-bag sessions* where we discussed testing, software architecture and libraries
+The Mediahub platform leverages reactive and distributed systems principles, built on Scala, Apache Kafka, Elasticsearch, PostgreSQL, and the Typelevel ecosystem.

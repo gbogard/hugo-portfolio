@@ -12,9 +12,15 @@
         pkgs = import nixpkgs { inherit system; };
       in
       {
-        devShells.default = pkgs.mkShellFor {
+        devShells.default = pkgs.mkShell {
           name = "portfolio-shell";
-          packages = with pkgs; [ hugo ];
+          buildInputs = with pkgs; [ 
+            hugo
+            nodejs_22
+            (nodePackages.yarn.override {
+              nodejs = nodejs_22;
+            })
+          ];
         };
       });
 }

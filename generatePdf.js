@@ -12,7 +12,9 @@ const out = resolve(__dirname, "assets", "./resume.pdf");
     preferCSSPageSize: true,
     printBackground: true,
     margin: {
-      top: 100
+      top: 0,
+      left: 10,
+      right: 10,
     }
   })
   await browser.close();
